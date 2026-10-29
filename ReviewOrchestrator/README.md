@@ -62,6 +62,10 @@ The HTML reviewers checked these XR-breaking defects against the source with nod
 - **Interactive:** the per-eye uv and the camera direction are wrong, so the stereo pair can't fuse.
 - **Mistral:** `rigYaw = π` and mixed coordinate spaces, so users spawn facing away and AR places the object behind them.
 
+## 4b. Phase 2: comparative judges
+
+Five more blind agents (Opus 5.5, effort high) each ranked all 8 implementations: HTML, transcript, HTML + transcript, browser, and browser + HTML. Method, de-anonymized ranks and incidents are in `../Judge/README.md`. Tools: `judge_blind.py`, `judge_prompts.py`, `judge_finalize.py`, `judge_aggregate.py`. For phase 2, `blind.py` got an import guard; its output is byte-identical to before.
+
 ## 5. File map
 
 ```
@@ -75,7 +79,10 @@ ReviewOrchestrator/
     blind/                     anonymized transcripts the reviewers saw + HTML checksums
     server-logs/               http.server access logs per browser review
     discarded/browser-c02-cached-run/   invalid run, kept for the record
-    tools/                     claude2md, blind, prompts, finalize, jsonl2md, redact
+    tools/                     claude2md, blind, prompts, finalize, jsonl2md, redact,
+                               judge_blind, judge_prompts, judge_finalize, judge_aggregate
+Judge/<Type>-Judge/            PROMPT.txt  RANKING.md  TRANSCRIPT.md  MAPPING.md  [screenshots/]
+Judge/README.md, Judge/judge-mapping.json
 ```
 
 ## 6. Reproducing the pipeline

@@ -3,7 +3,7 @@
 Sources: the Gemini page text (sidebar chat titles, location) and `ls ~/Downloads` listings.
 Usage: redact.py <session.jsonl> <private-terms.txt> <file.md>...   (rewrites files in place; exits 1 if a term survives)
 """
-import json, re, sys
+import json, os, re, sys
 
 OURS = re.compile(r"^(mandelbrot-room\.html|mandelbrot-xr\.html|root_mandelbrot-xr\.html|holographic_3d_mandelbrot_webxr_sanctuary\.html|claude-conv-.*\.json|mistral-.*)$")
 
@@ -14,7 +14,7 @@ def walk_strings(o):
     elif isinstance(o, list):
         for v in o: yield from walk_strings(v)
 
-def collect_terms(jsonl):
+def collect_terms(jsonl, own_roots=()):
     terms = set()
     for line in open(jsonl):
         for s in walk_strings(json.loads(line)):
@@ -27,12 +27,12 @@ def collect_terms(jsonl):
             # ls -l listings of ~/Downloads: keep only files this run created
             for m in re.finditer(r"^[-d][rwx-]{9} +\d+ +\S+ +\S+ +\d+ +\d+\. \S+ +[\d:]+ (.+)$", s, flags=re.M):
                 name = m.group(1).strip()
-                if name not in (".", "..") and not OURS.match(name) and not name.startswith("mistral-page"):
+                if len(name) >= 6 and not OURS.match(name) and not name.startswith("mistral-page"):
                     terms.add(name)
     # the run's own subject matter and files this run created must never be redacted
     import os
     own = set()
-    for root in ("/home/mpuchstein/Dev/AI/MandelbrotXR", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))):
+    for root in ("/home/mpuchstein/Dev/AI/MandelbrotXR", *own_roots):
         for _, dirs, files in os.walk(root):
             own.update(dirs); own.update(files)
     terms = {t for t in terms if t not in own and not re.search(r"Create a standalone html file|Mandelbrot", t)}
@@ -44,7 +44,7 @@ def extra_terms(path):
 
 if __name__ == "__main__":
     jsonl, extra, files = sys.argv[1], sys.argv[2], sys.argv[3:]
-    terms = sorted(set(collect_terms(jsonl)) | set(extra_terms(extra)), key=len, reverse=True)
+    terms = sorted(set(collect_terms(jsonl, own_roots=[os.path.dirname(os.path.abspath(extra))])) | set(extra_terms(extra)), key=len, reverse=True)
     print(f"{len(terms)} terms")
     bad = 0
     for f in files:

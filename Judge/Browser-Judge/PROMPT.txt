@@ -1,0 +1,49 @@
+You are a blind judge in a comparison of AI coding assistants. Eight assistants each built a standalone HTML file from one of two prompt versions. They are labelled A–H in random order. You do not know which assistant or model made which candidate: don't guess and don't mention vendors or models.
+
+Prompt v0 (verbatim):
+<<<
+Create a standalone html file that uses three.js and three.xr.js to visualize the Mandelbrotset in a virtual room.
+
+Requirements: Viewable on HMDs like Meta Quest 3, Steam Frame, Pico VR 4 Ultra (not an exhaustive enumeration) and on modern Android and Apple phones.
+
+Done when:
+1. A person wearing a VR headset or AR glasses or a mobile phone can open the HTML file on the device (Browser) and enter a virtual room in which the Mandelbrot set is getting visualized in 3d.
+>>>
+
+Prompt v1 (verbatim):
+<<<
+Create a standalone html file that uses WebXR to visualize the Mandelbrotset in a virtual room. Focus on delivering the highest possible visual wow effect and good usability.
+
+Requirements: Viewable on HMDs like Meta Quest 3, Steam Frame, Pico VR 4 Ultra (not an exhaustive enumeration) and on modern Android and Apple phones.
+
+Done when:
+1. A person wearing a VR headset or AR glasses or a mobile phone can open the HTML file on the device (Browser) and enter a virtual room in which the Mandelbrot set is getting visualized in 3d.
+>>>
+
+Which prompt each candidate answered is listed in /tmp/claude-1000/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219/scratchpad/judge/browser/CANDIDATES.md. Produce ONE combined ranking of all 8, best to worst, and judge each candidate against its own prompt version: a v0 candidate isn't penalised for missing the v1 "wow" goal, and a v1 candidate isn't held to v0's three.js requirement.
+
+Your material is ONLY what is under /tmp/claude-1000/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219/scratchpad/judge/browser/ (and, for browser work, the localhost URLs below). Do NOT read any other file or directory: no repositories, no other judges' folders, nothing else in the scratchpad.
+
+Your task: browser judge. Test the 8 products hands-on in Chrome. You must NOT read any source code. All 8 are served right now, each on its own origin:
+  A: http://localhost:8801/
+  B: http://localhost:8802/
+  C: http://localhost:8803/
+  D: http://localhost:8804/
+  E: http://localhost:8805/
+  F: http://localhost:8806/
+  G: http://localhost:8807/
+  H: http://localhost:8808/
+Note: native alert() calls in these served copies were rewritten to console.log() before serving, so any such messages show up in the console (read_console_messages) instead of as blocking dialogs. If you see one, treat it as the product having used a native dialog there.
+
+Browser rules: use the Claude in Chrome tools (mcp__claude-in-chrome__*). If they are deferred, load them with ONE ToolSearch call, e.g. "select:mcp__claude-in-chrome__tabs_context_mcp,mcp__claude-in-chrome__tabs_create_mcp,mcp__claude-in-chrome__tabs_close_mcp,mcp__claude-in-chrome__navigate,mcp__claude-in-chrome__computer,mcp__claude-in-chrome__browser_batch,mcp__claude-in-chrome__read_page,mcp__claude-in-chrome__find,mcp__claude-in-chrome__read_console_messages,mcp__claude-in-chrome__javascript_tool,mcp__claude-in-chrome__resize_window".
+- Call tabs_context_mcp first, then create your OWN tab(s) and close them all when done. Visit no URLs other than the ones listed above.
+- For each candidate: load it, read the console, use its controls (start buttons, presets, menus, orbit/zoom, keyboard), check its Enter VR/AR behaviour on this desktop without an XR device, and try a phone-like width.
+- Known limits of this environment: the window manager may refuse to resize below about 446 px, Chrome may throttle frame rate in the background, and there is no WebXR emulator, so no real XR session can be entered. Note these limits; don't score candidates on them.
+- Save up to 16 key screenshots (save_to_disk) and copy them into /tmp/claude-1000/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219/scratchpad/judge-out/browser/screenshots/ named <Letter>-<what>.jpg. Use screenshot scale ≤ 0.6 to save context.
+
+Output: write Markdown to exactly /tmp/claude-1000/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219/scratchpad/judge-out/browser/RANKING.md (create the directory if needed), with these sections in this order:
+1. "## Ranking criteria": the criteria you ranked by (weights optional), each with a one-line rationale.
+2. "## Ranking": a table, best to worst, with the columns Rank | Candidate | Prompt | Justification. Every letter A–H appears exactly once. Each justification is UNDER 50 words.
+3. "## Special elements": a list. Each item names the candidate letter(s) and the element, followed by exactly ONE sentence explaining why you selected it.
+4. "## Summary of tests and approach": UNDER 200 words on what you did and how.
+Start the file with "# Browser Judge — blind ranking". Write no other files except where stated above. Finish by replying with a 3-line summary: winner, last place, most notable special element.

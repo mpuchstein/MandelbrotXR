@@ -1,0 +1,35 @@
+You are a blind judge in a comparison of AI coding assistants. Eight assistants each built a standalone HTML file from one of two prompt versions. They are labelled A–H in random order. You do not know which assistant or model made which candidate: don't guess and don't mention vendors or models.
+
+Prompt v0 (verbatim):
+<<<
+Create a standalone html file that uses three.js and three.xr.js to visualize the Mandelbrotset in a virtual room.
+
+Requirements: Viewable on HMDs like Meta Quest 3, Steam Frame, Pico VR 4 Ultra (not an exhaustive enumeration) and on modern Android and Apple phones.
+
+Done when:
+1. A person wearing a VR headset or AR glasses or a mobile phone can open the HTML file on the device (Browser) and enter a virtual room in which the Mandelbrot set is getting visualized in 3d.
+>>>
+
+Prompt v1 (verbatim):
+<<<
+Create a standalone html file that uses WebXR to visualize the Mandelbrotset in a virtual room. Focus on delivering the highest possible visual wow effect and good usability.
+
+Requirements: Viewable on HMDs like Meta Quest 3, Steam Frame, Pico VR 4 Ultra (not an exhaustive enumeration) and on modern Android and Apple phones.
+
+Done when:
+1. A person wearing a VR headset or AR glasses or a mobile phone can open the HTML file on the device (Browser) and enter a virtual room in which the Mandelbrot set is getting visualized in 3d.
+>>>
+
+Which prompt each candidate answered is listed in /tmp/claude-1000/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219/scratchpad/judge/html_transcript/CANDIDATES.md. Produce ONE combined ranking of all 8, best to worst, and judge each candidate against its own prompt version: a v0 candidate isn't penalised for missing the v1 "wow" goal, and a v1 candidate isn't held to v0's three.js requirement.
+
+Your material is ONLY what is under /tmp/claude-1000/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219/scratchpad/judge/html_transcript/ (and, for browser work, the localhost URLs below). Do NOT read any other file or directory: no repositories, no other judges' folders, nothing else in the scratchpad.
+
+Your task: HTML + transcript judge. Each candidate has /tmp/claude-1000/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219/scratchpad/judge/html_transcript/<Letter>/index.html (the deliverable) and /tmp/claude-1000/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219/scratchpad/judge/html_transcript/<Letter>/TRANSCRIPT.md (the anonymized work session). Do static review only: no browser, no servers. Several files embed a bundled library such as three.js; skim that, and focus on the application code. Cross-check the transcript's claims against the code.
+Special elements to highlight: special features, where a candidate departs from what most of the others did, and claims in the transcript that the code doesn't support.
+
+Output: write Markdown to exactly /tmp/claude-1000/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219/scratchpad/judge-out/html_transcript/RANKING.md (create the directory if needed), with these sections in this order:
+1. "## Ranking criteria": the criteria you ranked by (weights optional), each with a one-line rationale.
+2. "## Ranking": a table, best to worst, with the columns Rank | Candidate | Prompt | Justification. Every letter A–H appears exactly once. Each justification is UNDER 50 words.
+3. "## Special elements": a list. Each item names the candidate letter(s) and the element, followed by exactly ONE sentence explaining why you selected it.
+4. "## Summary of tests and approach": UNDER 200 words on what you did and how.
+Start the file with "# HTML + Transcript Judge — blind ranking". Write no other files except where stated above. Finish by replying with a 3-line summary: winner, last place, most notable special element.

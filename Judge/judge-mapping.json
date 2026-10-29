@@ -1,0 +1,180 @@
+{
+ "html": {
+  "A": {
+   "name": "GitHub-CopilotTasks-Auto-Interactive-v1",
+   "prompt": "v1"
+  },
+  "B": {
+   "name": "Google-Web-Gemini4Argon-High-v1",
+   "prompt": "v1"
+  },
+  "C": {
+   "name": "GitHub-CopilotTasks-Auto-Autopilot-v1",
+   "prompt": "v1"
+  },
+  "D": {
+   "name": "OpenAI-Web-GPT6-Pro-v1",
+   "prompt": "v1"
+  },
+  "E": {
+   "name": "Anthropic-Web-Opus5.5-Max-v0",
+   "prompt": "v0"
+  },
+  "F": {
+   "name": "Mistral-VibeCode-MistralLarge4-Default-v1",
+   "prompt": "v1"
+  },
+  "G": {
+   "name": "OpenAI-Web-GPT6-Pro-v0",
+   "prompt": "v0"
+  },
+  "H": {
+   "name": "Anthropic-Web-Opus5.5-Max-v1",
+   "prompt": "v1"
+  }
+ },
+ "transcript": {
+  "A": {
+   "name": "OpenAI-Web-GPT6-Pro-v0",
+   "prompt": "v0"
+  },
+  "B": {
+   "name": "Mistral-VibeCode-MistralLarge4-Default-v1",
+   "prompt": "v1"
+  },
+  "C": {
+   "name": "GitHub-CopilotTasks-Auto-Interactive-v1",
+   "prompt": "v1"
+  },
+  "D": {
+   "name": "OpenAI-Web-GPT6-Pro-v1",
+   "prompt": "v1"
+  },
+  "E": {
+   "name": "Anthropic-Web-Opus5.5-Max-v1",
+   "prompt": "v1"
+  },
+  "F": {
+   "name": "Anthropic-Web-Opus5.5-Max-v0",
+   "prompt": "v0"
+  },
+  "G": {
+   "name": "Google-Web-Gemini4Argon-High-v1",
+   "prompt": "v1"
+  },
+  "H": {
+   "name": "GitHub-CopilotTasks-Auto-Autopilot-v1",
+   "prompt": "v1"
+  }
+ },
+ "html_transcript": {
+  "A": {
+   "name": "Anthropic-Web-Opus5.5-Max-v0",
+   "prompt": "v0"
+  },
+  "B": {
+   "name": "Anthropic-Web-Opus5.5-Max-v1",
+   "prompt": "v1"
+  },
+  "C": {
+   "name": "Mistral-VibeCode-MistralLarge4-Default-v1",
+   "prompt": "v1"
+  },
+  "D": {
+   "name": "OpenAI-Web-GPT6-Pro-v0",
+   "prompt": "v0"
+  },
+  "E": {
+   "name": "OpenAI-Web-GPT6-Pro-v1",
+   "prompt": "v1"
+  },
+  "F": {
+   "name": "GitHub-CopilotTasks-Auto-Autopilot-v1",
+   "prompt": "v1"
+  },
+  "G": {
+   "name": "Google-Web-Gemini4Argon-High-v1",
+   "prompt": "v1"
+  },
+  "H": {
+   "name": "GitHub-CopilotTasks-Auto-Interactive-v1",
+   "prompt": "v1"
+  }
+ },
+ "browser": {
+  "A": {
+   "name": "Anthropic-Web-Opus5.5-Max-v1",
+   "prompt": "v1",
+   "alerts_patched": 0
+  },
+  "B": {
+   "name": "GitHub-CopilotTasks-Auto-Interactive-v1",
+   "prompt": "v1",
+   "alerts_patched": 0
+  },
+  "C": {
+   "name": "Anthropic-Web-Opus5.5-Max-v0",
+   "prompt": "v0",
+   "alerts_patched": 0
+  },
+  "D": {
+   "name": "Google-Web-Gemini4Argon-High-v1",
+   "prompt": "v1",
+   "alerts_patched": 0
+  },
+  "E": {
+   "name": "Mistral-VibeCode-MistralLarge4-Default-v1",
+   "prompt": "v1",
+   "alerts_patched": 0
+  },
+  "F": {
+   "name": "GitHub-CopilotTasks-Auto-Autopilot-v1",
+   "prompt": "v1",
+   "alerts_patched": 2
+  },
+  "G": {
+   "name": "OpenAI-Web-GPT6-Pro-v0",
+   "prompt": "v0",
+   "alerts_patched": 0
+  },
+  "H": {
+   "name": "OpenAI-Web-GPT6-Pro-v1",
+   "prompt": "v1",
+   "alerts_patched": 0
+  }
+ },
+ "browser_html": {
+  "A": {
+   "name": "GitHub-CopilotTasks-Auto-Autopilot-v1",
+   "prompt": "v1"
+  },
+  "B": {
+   "name": "OpenAI-Web-GPT6-Pro-v1",
+   "prompt": "v1"
+  },
+  "C": {
+   "name": "OpenAI-Web-GPT6-Pro-v0",
+   "prompt": "v0"
+  },
+  "D": {
+   "name": "Mistral-VibeCode-MistralLarge4-Default-v1",
+   "prompt": "v1"
+  },
+  "E": {
+   "name": "Google-Web-Gemini4Argon-High-v1",
+   "prompt": "v1"
+  },
+  "F": {
+   "name": "GitHub-CopilotTasks-Auto-Interactive-v1",
+   "prompt": "v1"
+  },
+  "G": {
+   "name": "Anthropic-Web-Opus5.5-Max-v1",
+   "prompt": "v1"
+  },
+  "H": {
+   "name": "Anthropic-Web-Opus5.5-Max-v0",
+   "prompt": "v0"
+  }
+ }
+}
