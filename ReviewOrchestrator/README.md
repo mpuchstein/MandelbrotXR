@@ -74,13 +74,13 @@ prompt0.txt, prompt1.txt
 Review/{HTML,TRANSCRIPT,Browser}-Review/<folder>/
     PROMPT.txt  REVIEW.md  TRANSCRIPT.md  [screenshots/]
 ReviewOrchestrator/
-    PROMPT.md  TRANSCRIPT.md  PLAN.md  README.md (this file)
+    PROMPT.md  PROMPTS.md (all user prompts)  TRANSCRIPT.md  PLAN.md  README.md (this file)
     blind-mapping.json         candidate-NN → folder
     blind/                     anonymized transcripts the reviewers saw + HTML checksums
     server-logs/               http.server access logs per browser review
     discarded/browser-c02-cached-run/   invalid run, kept for the record
     tools/                     claude2md, blind, prompts, finalize, jsonl2md, redact,
-                               judge_blind, judge_prompts, judge_finalize, judge_aggregate
+                               judge_blind, judge_prompts, judge_finalize, judge_aggregate, user_prompts
 Judge/<Type>-Judge/            PROMPT.txt  RANKING.md  TRANSCRIPT.md  MAPPING.md  [screenshots/]
 Judge/README.md, Judge/judge-mapping.json
 ```

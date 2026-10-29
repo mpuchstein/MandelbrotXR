@@ -1,9 +1,9 @@
 # Orchestrator transcript
 
-- Session: Claude Code, claude-opus-5-5 (main session 14a78f0a). Rendered from the session log just before the final commit, so later turns are missing.
+- Session: Claude Code, claude-opus-5-5 (main session 14a78f0a), covering phase 1 (extraction + 24 reviews) and phase 2 (5 judges). Rendered at session wrap-up, so the final commit turn is missing.
 - Tool inputs are cut at 4,000 characters and tool results at 2,000. System reminders are removed.
 - Personal data that leaked into tool output (browser sidebar contents, unrelated download file names) is replaced by `[redacted]`; see README.md section 3.6.
-- For the process summary, deviations and results, see README.md next to this file and ../Judge/README.md.
+- The user's prompts are in PROMPTS.md. For the process summary see README.md and ../Judge/README.md.
 
 ### User · 2026-10-29T20:30:12.616Z
 
@@ -10576,6 +10576,336 @@ Peer sessions (17):
   Haiku 5.5 agent chats about Home Assistant [ad876d]  ·  Remote Control  ·  offline
   Media keys over lock screen [72c714]  ·  Remote Control  ·  offline
   Claude session messaging via rc [9335b2]  ·  Remote Control  ·  offline
+````
+
+</details>
+
+### Assistant · 2026-10-29T23:19:43.574Z
+
+<details><summary>Thinking</summary>
+
+Judge 5 has already shut down and its confirmation just never reached me—I should have checked sooner. Now I'll re-collect it, render and redact the orchestrator transcript, scan, commit, and push.
+
+</details>
+
+### Assistant · 2026-10-29T23:19:50.236Z
+
+**Tool call `Bash`**
+````
+{
+ "command": "S=/tmp/claude-1000/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219/scratchpad; R=/home/mpuchstein/Dev/AI/MandelbrotXR; T=$R/ReviewOrchestrator/tools; J=~/.claude/projects/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219.jsonl\npython3 -I $T/judge_finalize.py $R $S $S/redact-extra.txt browser_html html html_transcript transcript browser\npython3 -I $T/judge_aggregate.py $R $S/judge-mapping.json | diff - $S/judge-matrix.md && echo \"matrix unchanged\"\npython3 -I $T/jsonl2md.py $J $R/ReviewOrchestrator/TRANSCRIPT.md \"# Orchestrator transcript\n\n- Session: Claude Code, claude-opus-5-5 (main session 14a78f0a). Rendered from the session log just before the final commit, so later turns are missing.\n- Tool inputs are cut at 4,000 characters and tool results at 2,000. System reminders are removed.\n- Personal data that leaked into tool output (browser sidebar contents, unrelated download file names) is replaced by \\`[redacted]\\`; see README.md section 3.6.\n- For the process summary, deviations and results, see README.md next to this file and ../Judge/README.md.\" >/dev/null\npython3 -I $T/redact.py $J $S/redact-extra.txt $R/ReviewOrchestrator/TRANSCRIPT.md\ngrep -c \"\\[redacted\\]ev-\\|R\\[redacted\\]NKIN\" $R/ReviewOrchestrator/TRANSCRIPT.md\n# full-tree scan with terms from every session log\npython3 -I - $S $R <<'EOF'\nimport sys,os,glob\nS,R=sys.argv[1:3]; sys.path.insert(0,R+\"/ReviewOrchestrator/tools\"); import redact\nterms=set(redact.extra_terms(S+\"/redact-extra.txt\"))\nfor f in glob.glob(os.path.expanduser(\"~/.claude/projects/-home-mpuchstein-Dev-AI-MandelbrotXR/*.jsonl\")):\n    terms|=set(redact.collect_terms(f, own_roots=[S]))\nhits=0\nfor root,dirs,files in os.walk(R):\n    if \".git\" in root.split(os.sep): continue\n    for fn in files:\n        try: t=open(os.path.join(root,fn),encoding=\"utf-8\").read()\n        except Exception: continue\n        for term in terms:\n            if term in t: print(\"HIT\",repr(term[:40]),os.path.join(root,fn)); hits+=1\nprint(\"terms\",len(terms),\"hits\",hits)\nEOF\ncd $R && for f in RANKING PROMPT TRANSCRIPT MAPPING; do echo \"$f: $(find Judge -name $f.* | wc -l)\"; done",
+ "description": "Final collect, render, redact, scan, count outputs"
+}
+````
+
+### Tool output · 2026-10-29T23:19:55.160Z
+
+<details><summary>Tool result</summary>
+
+````
+browser_html prompt-match | order: GHBCEDAF | problems: none
+html prompt-match | order: HEDGBFCA | problems: none
+html_transcript prompt-match | order: BADEGCFH | problems: none
+transcript prompt-match | order: FEADBHCG | problems: none
+browser prompt-match | order: HCGADEFB | problems: none
+matrix unchanged
+46 terms
+0
+terms 46 hits 0
+RANKING: 5
+PROMPT: 5
+TRANSCRIPT: 5
+MAPPING: 5
+````
+
+</details>
+
+### Assistant · 2026-10-29T23:19:58.361Z
+
+**Tool call `Bash`**
+````
+{
+ "command": "git add -A && git diff --cached --stat | tail -3 && git diff --cached | grep -E -i \"sk-ant|ghp_[A-Za-z0-9]{20}|github_pat_|Bearer [A-Za-z0-9._-]{20}\" | head -3; git commit -q -m \"docs: add 5 blind comparative judges\" && git push origin main 2>&1 | tail -1 && test \"$(git rev-parse HEAD)\" = \"$(git ls-remote origin main | cut -f1)\" && echo \"remote == local\" && git log --oneline -4 && git status -s | wc -l",
+ "description": "Commit judges and push"
+}
+````
+
+### Tool output · 2026-10-29T23:20:16.192Z
+
+<details><summary>Tool result</summary>
+
+````
+ ReviewOrchestrator/tools/judge_prompts.py          |   90 +
+ ReviewOrchestrator/tools/redact.py                 |   10 +-
+ 66 files changed, 16737 insertions(+), 30 deletions(-)
+   41f1537..f90cd6f  main -> main
+remote == local
+f90cd6f docs: add 5 blind comparative judges
+41f1537 docs: add blind HTML, transcript and browser reviews with orchestration log
+93fc84c feat: add extracted MandelbrotXR chat outputs, transcripts and prompts
+98f018b init
+0
+````
+
+</details>
+
+### Assistant · 2026-10-29T23:20:25.900Z
+
+All 5 judges are done, shut down and pushed as `f90cd6f` (a normal push, no force).
+
+Judge 5 had already shut down; I should have checked the agent list instead of waiting for a confirmation that never arrived.
+
+**Combined ranking** (1 = best, mean of the 5 judges):
+
+| Folder | HTML | Transcript | HTML+Transcript | Browser | Browser+HTML | Mean |
+|---|---|---|---|---|---|---|
+| Opus5.5-Max-v1 | 1 | 2 | 1 | 4 | 1 | 1.8 |
+| Opus5.5-Max-v0 | 2 | 1 | 2 | 2 | 2 | 1.8 |
+| GPT6-Pro-v1 | 3 | 4 | 4 | 1 | 3 | 3.0 |
+| GPT6-Pro-v0 | 4 | 3 | 3 | 3 | 4 | 3.4 |
+| Gemini4Argon-High-v1 | 5 | 8 | 5 | 5 | 5 | 5.6 |
+| Mistral Large 4-v1 | 6 | 5 | 6 | 6 | 6 | 5.8 |
+| Copilot-Autopilot-v1 | 7 | 6 | 7 | 7 | 7 | 6.8 |
+| Copilot-Interactive-v1 | 8 | 7 | 8 | 8 | 8 | 7.8 |
+
+- **Consistent pattern:** the two Opus builds and then the two GPT6 Pro builds form the top four in every judge's list. The two Copilot builds are the bottom two everywhere except the transcript judge, which put Gemini last.
+- **Browser judge:** it put GPT6-Pro-v1 first, for its polished room and the dialog that explains which XR modes this device supports.
+- **Shared finding:** the code-reading judges independently noticed that only the two Opus builds compute the fractal in a way that allows deep zoom. They zoom millions of times deeper than the rest.
+
+**What's in the repo**
+- Each of the 5 folders under `Judge/` has `PROMPT.txt`, `RANKING.md`, `TRANSCRIPT.md` and `MAPPING.md`; the browser judges also have screenshots.
+- All five rankings passed the format check: each letter appears once, justifications are under 50 words, summaries are under 200.
+- Each prompt in the agents' logs matches its saved `PROMPT.txt`.
+- `Judge/README.md` holds the matrix, the method and the incidents. `ReviewOrchestrator/` has the updated README, the four new scripts and a re-rendered, redacted transcript of this session.
+- A privacy scan over the whole tree, using terms from every session log, found nothing.
+
+**One problem I fixed along the way:** after I moved the redaction script into the repo, it started replacing single letters (A, C, D…) in the browser judge's transcript. The prompt-match check caught it. I fixed the script and re-rendered all judge transcripts, and the old orchestrator transcript was not affected.
+
+### User · 2026-10-29T23:23:09.847Z
+
+wrap your session here. save your transcript + prompts
+
+### Assistant · 2026-10-29T23:23:13.882Z
+
+Wrapping up: I'll extract every message you typed this session into `ReviewOrchestrator/PROMPTS.md`, re-render the transcript, redact and scan both, then commit and push.
+
+### Assistant · 2026-10-29T23:23:19.733Z
+
+**Tool call `Bash`**
+````
+{
+ "command": "S=/tmp/claude-1000/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219/scratchpad; R=/home/mpuchstein/Dev/AI/MandelbrotXR; T=$R/ReviewOrchestrator/tools; J=~/.claude/projects/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219.jsonl\npython3 -I - $J $R/ReviewOrchestrator/PROMPTS.md <<'EOF'\nimport json, re, sys\nsrc, dst = sys.argv[1:3]\nout = [\"# User prompts of the orchestrator session\", \"\",\n       \"Every message the user typed in this session, verbatim and in order. Teammate messages, tool results and question-dialog answers are excluded; the answers are in TRANSCRIPT.md.\", \"\"]\nn, seen = 0, set()\nfor line in open(src):\n    d = json.loads(line)\n    if d.get(\"type\") != \"user\" or d.get(\"isMeta\") or d.get(\"uuid\") in seen: continue\n    seen.add(d.get(\"uuid\"))\n    c = d[\"message\"][\"content\"]\n    texts = [c] if isinstance(c, str) else [b.get(\"text\", \"\") for b in c if b.get(\"type\") == \"text\"]\n    for t in texts:\n        t = re.sub(r\"<system-reminder>.*?</system-reminder>\", \"\", t, flags=re.S).strip()\n        if not t or t.startswith((\"<teammate-message\", \"<cross-session\", \"<task-notification\", \"[Request interrupted\")): continue\n        n += 1\n        out += [f\"## Prompt {n} · {d.get('timestamp', '')}\", \"\", \"` ` ` `\", t, \"` ` ` `\", \"\"]\nopen(dst, \"w\").write(\"\\n\".join(out))\nprint(n, \"prompts\")\nEOF\ngrep -n \"^## Prompt\" $R/ReviewOrchestrator/PROMPTS.md; sed -n '/## Prompt 2/,/## Prompt 3/p' $R/ReviewOrchestrator/PROMPTS.md | head -8",
+ "description": "Extract all user prompts into PROMPTS.md"
+}
+````
+
+### Tool output · 2026-10-29T23:23:26.988Z
+
+<details><summary>Tool result</summary>
+
+````
+48 prompts
+5:## Prompt 1 · 2026-10-29T20:30:12.616Z
+27:## Prompt 2 · 2026-10-29T20:44:35.332Z
+67:## Prompt 3 · 2026-10-29T21:16:05.650Z
+112:## Prompt 4 · 2026-10-29T21:16:20.444Z
+125:## Prompt 5 · 2026-10-29T21:16:25.445Z
+136:## Prompt 6 · 2026-10-29T21:16:30.446Z
+150:## Prompt 7 · 2026-10-29T21:16:36.448Z
+161:## Prompt 8 · 2026-10-29T21:17:02.452Z
+172:## Prompt 9 · 2026-10-29T21:17:16.454Z
+183:## Prompt 10 · 2026-10-29T21:18:02.460Z
+196:## Prompt 11 · 2026-10-29T21:18:07.461Z
+207:## Prompt 12 · 2026-10-29T21:18:12.461Z
+220:## Prompt 13 · 2026-10-29T21:18:19.469Z
+231:## Prompt 14 · 2026-10-29T21:18:59.469Z
+244:## Prompt 15 · 2026-10-29T21:19:05.470Z
+255:## Prompt 16 · 2026-10-29T21:19:29.473Z
+269:## Prompt 17 · 2026-10-29T21:19:46.875Z
+280:## Prompt 18 · 2026-10-29T21:22:34.500Z
+291:## Prompt 19 · 2026-10-29T21:28:53.546Z
+302:## Prompt 20 · 2026-10-29T21:36:15.595Z
+313:## Prompt 21 · 2026-10-29T21:40:50.626Z
+327:## Prompt 22 · 2026-10-29T21:41:36.420Z
+338:## Prompt 23 · 2026-10-29T21:42:54.636Z
+344:## Prompt 24 · 2026-10-29T21:45:04.655Z
+358:## Prompt 25 · 2026-10-29T21:45:18.608Z
+369:## Prompt 26 · 2026-10-29T21:45:51.660Z
+387:## Prompt 27 · 2026-10-29T21:46:32.206Z
+409:## Prompt 28 · 2026-10-29T21:50:28.698Z
+420:## Prompt 29 · 2026-10-29T21:56:24.735Z
+434:## Prompt 30 · 2026-10-29T21:57:05.062Z
+445:## Prompt 31 · 2026-10-29T22:07:02.819Z
+460:## Prompt 32 · 2026-10-29T22:07:44.890Z
+471:## Prompt 33 · 2026-10-29T22:13:23.878Z
+484:## Prompt 34 · 2026-10-29T22:15:55.174Z
+495:## Prompt 35 · 2026-10-29T22:19:21.919Z
+505:## Prompt 36 · 2026-10-29T22:40:52.588Z
+524:## Prompt 37 · 2026-10-29T22:46:57.909Z
+731:## Prompt 38 · 2026-10-29T22:48:49.051Z
+742:## Prompt 39 · 2026-10-29T22:51:13.071Z
+757:## Prompt 40 · 2026-10-29T22:51:30.444Z
+768:## Prompt 41 · 2026-10-29T22:52:39.081Z
+779:## Prompt 42 · 2026-10-29T22:55:51.101Z
+790:## Prompt 43 · 2026-10-29T22:57:12.131Z
+801:## Prompt 44 · 2026-10-29T22:57:13.940Z
+820:## Prompt 45 · 2026-10-29T22:57:16.018Z
+843:## Prompt 46 · 202
+… [truncated, 340 more chars]
+````
+
+</details>
+
+### Assistant · 2026-10-29T23:23:30.009Z
+
+48 is too many: teammate notifications and injected content slipped through the filter. Checking how each one starts.
+
+### Assistant · 2026-10-29T23:23:31.108Z
+
+**Tool call `Bash`**
+````
+{
+ "command": "R=/home/mpuchstein/Dev/AI/MandelbrotXR; awk '/^## Prompt/{getline; getline; getline; print NR\": \"substr($0,1,90)}' $R/ReviewOrchestrator/PROMPTS.md",
+ "description": "Show first line of each extracted prompt"
+}
+````
+
+### Tool output · 2026-10-29T23:23:33.648Z
+
+<details><summary>Tool result</summary>
+
+````
+8: here is a list of ai chats with different web tools:
+30: here is a list of ai chats with different web tools:
+70: Another Claude session sent a message:
+115: Another Claude session sent a message:
+128: Another Claude session sent a message:
+139: Another Claude session sent a message:
+153: Another Claude session sent a message:
+164: Another Claude session sent a message:
+175: Another Claude session sent a message:
+186: Another Claude session sent a message:
+199: Another Claude session sent a message:
+210: Another Claude session sent a message:
+223: Another Claude session sent a message:
+234: Another Claude session sent a message:
+247: Another Claude session sent a message:
+258: Another Claude session sent a message:
+272: Another Claude session sent a message:
+283: Another Claude session sent a message:
+294: Another Claude session sent a message:
+305: Another Claude session sent a message:
+316: Another Claude session sent a message:
+330: Another Claude session sent a message:
+341: the current reviewer has problem: he cannot click that popup [Image #4] i am click it for 
+347: Another Claude session sent a message:
+361: Another Claude session sent a message:
+372: Another Claude session sent a message:
+390: Another Claude session sent a message:
+412: Another Claude session sent a message:
+423: Another Claude session sent a message:
+437: Another Claude session sent a message:
+448: Another Claude session sent a message:
+463: Another Claude session sent a message:
+474: Another Claude session sent a message:
+487: Another Claude session sent a message:
+498: end all those agents you started and that are finished. they are still idling and hanging 
+508: [Entering plan mode.]
+527: Another Claude session sent a message:
+734: Another Claude session sent a message:
+745: Another Claude session sent a message:
+760: Another Claude session sent a message:
+771: Another Claude session sent a message:
+782: Another Claude session sent a message:
+793: Another Claude session sent a messag
+… [truncated, 277 more chars]
+````
+
+</details>
+
+### Assistant · 2026-10-29T23:23:43.479Z
+
+**Tool call `Bash`**
+````
+{
+ "command": "S=/tmp/claude-1000/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219/scratchpad; R=/home/mpuchstein/Dev/AI/MandelbrotXR; J=~/.claude/projects/-home-mpuchstein-Dev-AI-MandelbrotXR/14a78f0a-2d81-433c-9df8-b0d851d25219.jsonl\ncat > $R/ReviewOrchestrator/tools/user_prompts.py <<'EOF'\n\"\"\"Extract the messages the user typed in a Claude Code session log into Markdown (verbatim, in order, deduplicated).\nUsage: user_prompts.py <session.jsonl> <out.md>\n\"\"\"\nimport json, re, sys\n\nSKIP = (\"<teammate-message\", \"<cross-session\", \"<task-notification\", \"[Request interrupted\", \"Another Claude session sent a message:\")\n\ndef prompts(src):\n    seen_uuid, seen_text = set(), set()\n    for line in open(src):\n        d = json.loads(line)\n        if d.get(\"type\") != \"user\" or d.get(\"isMeta\") or d.get(\"uuid\") in seen_uuid: continue\n        seen_uuid.add(d.get(\"uuid\"))\n        c = d[\"message\"][\"content\"]\n        for t in ([c] if isinstance(c, str) else [b.get(\"text\", \"\") for b in c if b.get(\"type\") == \"text\"]):\n            t = re.sub(r\"<system-reminder>.*?</system-reminder>\", \"\", t, flags=re.S).strip()\n            if not t or t.startswith(SKIP) or t in seen_text: continue\n            seen_text.add(t)\n            yield d.get(\"timestamp\", \"\"), t\n\nif __name__ == \"__main__\":\n    out = [\"# User prompts of the orchestrator session\", \"\",\n           \"Every message the user typed in this session, verbatim and in order. Teammate messages, tool results and question-dialog answers are excluded; the answers are in TRANSCRIPT.md.\", \"\"]\n    ps = list(prompts(sys.argv[1]))\n    for i, (ts, t) in enumerate(ps, 1):\n        out += [f\"## Prompt {i} · {ts}\", \"\", \"` ` ` `\", t, \"` ` ` `\", \"\"]\n    open(sys.argv[2], \"w\").write(\"\\n\".join(out))\n    assert ps and not any(t.startswith(SKIP) for _, t in ps)\n    print(len(ps), \"prompts\")\nEOF\npython3 -I $R/ReviewOrchestrator/tools/user_prompts.py $J $R/ReviewOrchestrator/PROMPTS.md && awk '/^## Prompt/{h=$0; getline; getline; getline; print h\" | \"substr($0,1,80)}' $R/ReviewOrchestrator/PROMPTS.md",
+ "description": "Rewrite prompt extractor with proper filtering"
+}
+````
+
+### Tool output · 2026-10-29T23:23:48.217Z
+
+<details><summary>Tool result</summary>
+
+````
+7 prompts
+## Prompt 1 · 2026-10-29T20:30:12.616Z | here is a list of ai chats with different web tools:
+## Prompt 2 · 2026-10-29T20:44:35.332Z | here is a list of ai chats with different web tools:
+## Prompt 3 · 2026-10-29T21:42:54.636Z | the current reviewer has problem: he cannot click that popup [Image #4] i am cli
+## Prompt 4 · 2026-10-29T22:19:21.919Z | end all those agents you started and that are finished. they are still idling an
+## Prompt 5 · 2026-10-29T22:40:52.588Z | [Entering plan mode.]
+## Prompt 6 · 2026-10-29T23:19:34.683Z | status? we are waiting for 12 minutes for the judge 5's shutdown confirmation
+## Prompt 7 · 2026-10-29T23:23:09.847Z | wrap your session here. save your transcript + prompts
+````
+
+</details>
+
+### Assistant · 2026-10-29T23:23:51.069Z
+
+Prompts 1 and 2 start the same but aren't identical, and prompt 5 should contain your phase-2 request. Checking both.
+
+### Assistant · 2026-10-29T23:23:53.161Z
+
+**Tool call `Bash`**
+````
+{
+ "command": "R=/home/mpuchstein/Dev/AI/MandelbrotXR; python3 -I - $R/ReviewOrchestrator/PROMPTS.md <<'EOF'\nimport sys,re,difflib\nt=open(sys.argv[1]).read()\nblocks=re.findall(r\"## Prompt (\\d+) [^\\n]*\\n\\n` ` ` `\\n(.*?)\\n` ` ` `\", t, flags=re.S)\nb={int(n):x for n,x in blocks}\nfor l in difflib.unified_diff(b[1].splitlines(), b[2].splitlines(), lineterm=\"\", n=0): print(l[:150])\nprint(\"---- prompt 5 head:\"); print(b[5][:400])\nEOF",
+ "description": "Diff prompts 1 and 2; show prompt 5"
+}
+````
+
+### Tool output · 2026-10-29T23:23:55.277Z
+
+<details><summary>Tool result</summary>
+
+````
+--- 
++++ 
+@@ -6,2 +6 @@
+-refined prompt after i saw the thinking output of the first prompt even before there results are
+-in:
++refined prompt after i saw the thinking output of the first prompt even before there results are in:
+@@ -9,6 +8,5 @@
+-  https://chatgpt.com/c/6ae356bd-fa4c-83eb-8b2c-5a777b52333a
+-  https://chat.mistral.ai/code/01a18896-7c9a-7259-a8b0-1021401b8abd/01a18897-02b1-723e-8eac-66f06540e
+-  b7a
+-  https://gemini.google.com/app/bb0b8f672792cf16
+-  https://github.com/copilot/tasks/b471892c-1453-4af2-92fa-5f94611b2a73
+-  https://github.com/copilot/tasks/1976d0f6-45af-48c0-b323-2ce130b5afeb
++https://chatgpt.com/c/6ae356bd-fa4c-83eb-8b2c-5a777b52333a
++https://chat.mistral.ai/code/01a18896-7c9a-7259-a8b0-1021401b8abd/01a18897-02b1-723e-8eac-66f06540eb7a
++https://gemini.google.com/app/bb0b8f672792cf16
++https://github.com/copilot/tasks/b471892c-1453-4af2-92fa-5f94611b2a73
++https://github.com/copilot/tasks/1976d0f6-45af-48c0-b323-2ce130b5afeb
+@@ -17 +15,21 @@
+-  Extract the html file from all chats into a folder named
++Extract the html file from all chats into a folder named {Providername}-{Tool}-{Model}-{Thinkinglevel/Effortlevel}-{Prompt version} using Claude in C
++Extract the full chat transcription also into that folder as TRANSCRIPTION.md
++Save both prompts into the project root as prompt0.txt and prompt1.txt
++
++When that is done add, commit and push this repo.
++then create a folder Review in this folder.
++there you create 3 folder:
++HTML-Review
++TRANSCRIPT-Review
++Browser-Review
++
++for each chat that we exported start 3 Opus xhigh Agents:
++1. one agent that just looks at the html file we extracted. he delivers a REVIEW.md to Review/HTML-Review/{Providername}-{Tool}-{Model}-{Thinkingleve
++2. one agent that just looks at the transcript we extracted. he delivers a REVIEW.md to Review/TRANSCRIPT-Review/{Providername}-{Tool}-{Model}-{Think
++  Review/TRANSCRIPT-Review/{Providername}-{Tool}-{Model}-{Thinkinglevel/Effortlevel}-{Prompt version}/PROMPT.txt
++3.
+… [truncated, 936 more chars]
 ````
 
 </details>
