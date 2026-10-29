@@ -1,0 +1,42 @@
+{
+ "candidate-01": {
+  "name": "OpenAI-Web-GPT6-Pro-v1",
+  "prompt": "prompt1.txt",
+  "original_html": "mandelbrot-room.html"
+ },
+ "candidate-02": {
+  "name": "Anthropic-Web-Opus5.5-Max-v1",
+  "prompt": "prompt1.txt",
+  "original_html": "mandelbrot-xr.html"
+ },
+ "candidate-03": {
+  "name": "Mistral-VibeCode-MistralLarge4-Default-v1",
+  "prompt": "prompt1.txt",
+  "original_html": "mandelbrot-xr.html"
+ },
+ "candidate-04": {
+  "name": "GitHub-CopilotTasks-Auto-Autopilot-v1",
+  "prompt": "prompt1.txt",
+  "original_html": "mandelbrot-xr.html"
+ },
+ "candidate-05": {
+  "name": "GitHub-CopilotTasks-Auto-Interactive-v1",
+  "prompt": "prompt1.txt",
+  "original_html": "mandelbrot-xr.html"
+ },
+ "candidate-06": {
+  "name": "OpenAI-Web-GPT6-Pro-v0",
+  "prompt": "prompt0.txt",
+  "original_html": "mandelbrot-room.html"
+ },
+ "candidate-07": {
+  "name": "Anthropic-Web-Opus5.5-Max-v0",
+  "prompt": "prompt0.txt",
+  "original_html": "mandelbrot-room.html"
+ },
+ "candidate-08": {
+  "name": "Google-Web-Gemini4Argon-High-v1",
+  "prompt": "prompt1.txt",
+  "original_html": "holographic_3d_mandelbrot_webxr_sanctuary.html"
+ }
+}
