@@ -532,6 +532,7 @@ def git_history(repo: str, paths: list[str]) -> list[dict]:
 
 def load(repo: str) -> Model:
     repo = os.path.abspath(repo)
+    _FILES.pop(repo, None)  # re-read the file list on every load (tests mutate repos between loads)
     cpath = "site/candidates.toml"
     try:
         raw = tomllib.loads(_read(repo, cpath)).get("candidate", [])

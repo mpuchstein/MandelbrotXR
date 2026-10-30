@@ -15,6 +15,7 @@ import posixpath
 import re
 
 from ..fragments import render_md
+from ..data import repo_files
 from ..layout import Site, esc
 
 ORDER = 750
@@ -25,20 +26,25 @@ SITE_DOCS = (".md", ".toml")  # from site/ only its top-level documents (brief, 
 
 
 def walk(repo: str) -> tuple[list[str], list[str]]:
-    """(directories, files), repo-relative, sorted; '' is the root directory."""
-    dirs, files = [""], []
-    for dirpath, dirnames, filenames in os.walk(repo):
-        rel = os.path.relpath(dirpath, repo).replace(os.sep, "/")
-        rel = "" if rel == "." else rel
-        in_site = rel == "site"
-        dirnames[:] = [] if in_site else sorted(d for d in dirnames if not d.startswith(".") and d not in SKIP_DIRS)
-        for d in dirnames:
-            dirs.append(posixpath.join(rel, d))
-        for n in sorted(filenames):
-            if n.endswith((".pyc", ".pyo")) or n in (".DS_Store",) or (in_site and not n.endswith(SITE_DOCS)):
-                continue
-            files.append(posixpath.join(rel, n))
-    return sorted(dirs), sorted(files)
+    """(directories, files), repo-relative, sorted; '' is the root directory. Files come from
+    data.repo_files() (committed + untracked-but-not-ignored), never from ignored build output or caches."""
+    files = []
+    for p in sorted(repo_files(repo)):
+        parts = p.split("/")
+        if any(x.startswith(".") for x in parts[:-1]) or any(x in SKIP_DIRS for x in parts):
+            continue
+        if parts[0] == "site" and (len(parts) != 2 or not p.endswith(SITE_DOCS)):
+            continue
+        if p.endswith((".pyc", ".pyo")) or parts[-1] == ".DS_Store":
+            continue
+        files.append(p)
+    dirs = {""}
+    for p in files:
+        d = posixpath.dirname(p)
+        while d:
+            dirs.add(d)
+            d = posixpath.dirname(d)
+    return sorted(dirs), files
 
 
 def _human(b: int) -> str:
