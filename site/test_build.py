@@ -185,6 +185,13 @@ def test_results_json(out: str) -> None:
     assert isinstance(res, dict) and res.get("candidates"), "results.json has no candidates"
 
 
+def test_thumbnails(model: data.Model, out: str) -> None:
+    home = open(os.path.join(out, "index.html"), encoding="utf-8").read()
+    for c in model.candidates:
+        if c.thumbnail_path:
+            assert c.thumbnail_path in home, f"home card of {c.slug} ignores its candidates.toml thumbnail"
+
+
 # ---------------------------------------------------------------- validation and extensibility
 
 def copy_repo(dst: str) -> str:
@@ -223,6 +230,10 @@ def test_validation(tmp: str) -> None:
     T = os.path.join(repo, "site/candidates.toml")
     old = edit(T, lambda s: s.replace("https://claude.ai/chat/09e85d21-ad05-4fe0-b10d-8ef14cc23da7", "https://claude.ai/chat/wrong", 1))
     expect_failure(repo, "differs from the '- Source:' line", "site/candidates.toml")
+    open(T, "w", encoding="utf-8").write(old)
+    # a thumbnail that is another candidate's screenshot
+    old = edit(T, lambda s: s.replace("screenshots/H-room.jpg", "screenshots/C-overview.jpg", 1))
+    expect_failure(repo, "is not one of its review or judge screenshots", "site/candidates.toml")
     open(T, "w", encoding="utf-8").write(old)
     # an unparsable score
     R = os.path.join(repo, "Review/HTML-Review/OpenAI-Web-GPT6-Pro-v0/REVIEW.md")
@@ -357,6 +368,8 @@ def main() -> None:
         n = test_links(a)
         print(f"ok  {n} internal links resolve; no inline scripts or handlers in {len(site_pages(a))} site pages")
         test_results_json(a)
+        test_thumbnails(model, a)
+        print("ok  home cards use the candidates.toml thumbnails")
         build_ok(REPO, b)
         da, db = tree_digest(a), tree_digest(b)
         diff = sorted(k for k in set(da) | set(db) if da.get(k) != db.get(k))

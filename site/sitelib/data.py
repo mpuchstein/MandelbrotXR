@@ -35,6 +35,7 @@ def fail(path: str, msg: str) -> None:
 
 CAND_FIELDS = ("slug", "folder", "name", "label", "vendor", "product", "model", "effort", "provenance",
                "prompt", "product_file", "source_url", "date")
+CAND_OPTIONAL = ("thumbnail",)
 
 
 @dataclass
@@ -73,9 +74,12 @@ class Candidate:
     alert_calls: int = 0
     transcription: str = ""          # repo-relative TRANSCRIPTION.md
     shots: list[Shot] = field(default_factory=list)
+    thumbnail_path: str = ""         # candidates.toml `thumbnail` (repo-relative), validated against shots
 
     @property
     def thumbnail(self) -> Shot | None:
+        if self.thumbnail_path:
+            return next(s for s in self.shots if s.path == self.thumbnail_path)
         for kind in ("review", "judge"):
             for s in self.shots:
                 if s.source == kind:
@@ -543,14 +547,16 @@ def load(repo: str) -> Model:
         missing = [k for k in CAND_FIELDS if not isinstance(c.get(k), str) or not c.get(k)]
         if missing:
             fail(cpath, f"candidate #{i + 1} lacks field(s) {missing}")
-        unknown = sorted(set(c) - set(CAND_FIELDS))
+        unknown = sorted(set(c) - set(CAND_FIELDS) - set(CAND_OPTIONAL))
         if unknown:
             fail(cpath, f"candidate {c['slug']!r} has unknown field(s) {unknown}")
+        if not isinstance(c.get("thumbnail", ""), str):
+            fail(cpath, f"candidate {c['slug']!r}: thumbnail must be a string (a repo-relative screenshot path)")
         if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", c["slug"]):
             fail(cpath, f"slug {c['slug']!r} must be lowercase a-z0-9 words joined by '-'")
         if c["prompt"] not in ("v0", "v1") and not os.path.exists(os.path.join(repo, f"prompt{c['prompt'][1:]}.txt")):
             fail(cpath, f"candidate {c['slug']!r}: prompt {c['prompt']!r} has no prompt{c['prompt'][1:]}.txt")
-        cands.append(Candidate(**{k: c[k] for k in CAND_FIELDS}, index=i))
+        cands.append(Candidate(**{k: c[k] for k in CAND_FIELDS}, index=i, thumbnail_path=c.get("thumbnail", "")))
     for key in ("slug", "folder"):
         seen = [getattr(c, key) for c in cands]
         dup = sorted({s for s in seen if seen.count(s) > 1})
@@ -689,6 +695,10 @@ def load(repo: str) -> Model:
                 by_folder_slug = next(c for c in cands if c.slug == slug)
                 by_folder_slug.shots.append(s)
         judges.append(j)
+
+    for c in cands:
+        if c.thumbnail_path and c.thumbnail_path not in {s.path for s in c.shots}:
+            fail(cpath, f"candidate {c.slug!r}: thumbnail {c.thumbnail_path!r} is not one of its review or judge screenshots")
 
     # discarded runs (kept for the record, shown on the methodology page)
     discarded = []

@@ -14,10 +14,16 @@
 #   product_file  the product HTML file inside the folder
 #   source_url    the original chat URL (TRANSCRIPTION.md header)
 #   date          date of the chat (YYYY-MM-DD)
+#   thumbnail     optional: repo path of the card picture, one of this candidate's review or judge
+#                 screenshots (default: its first review screenshot)
 #
 # Dates: the Anthropic and OpenAI headers carry timestamps (2026-10-29). The Mistral,
 # Gemini and Copilot headers carry no date; ReviewOrchestrator/README.md says all chats
 # were collected on 2026-10-29, so that date is used for them.
+#
+# Thumbnails: the v0 browser reviews ran in a phone-sized portrait viewport, and the cards
+# crop 16:10 from the top, which cuts off the landscape. Those two cards use a landscape
+# judge screenshot instead.
 
 [[candidate]]
 slug = "opus55-max-v0"
@@ -33,6 +39,7 @@ prompt = "v0"
 product_file = "mandelbrot-room.html"
 source_url = "https://claude.ai/chat/09e85d21-ad05-4fe0-b10d-8ef14cc23da7"
 date = "2026-10-29"
+thumbnail = "Judge/Browser_HTML-Judge/screenshots/H-room.jpg"
 
 [[candidate]]
 slug = "opus55-max-v1"
@@ -63,6 +70,7 @@ prompt = "v0"
 product_file = "mandelbrot-room.html"
 source_url = "https://chatgpt.com/c/6ae355ca-17a4-83eb-b26b-38244eb1971e"
 date = "2026-10-29"
+thumbnail = "Judge/Browser_HTML-Judge/screenshots/C-overview.jpg"
 
 [[candidate]]
 slug = "gpt6-pro-v1"

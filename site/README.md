@@ -54,7 +54,7 @@ Everything is discovered from the repository; `site/candidates.toml` is the only
 
 | Entity | Source | Notes |
 |---|---|---|
-| Candidate | `site/candidates.toml` (`[[candidate]]`: slug, folder, name, label, vendor, product, model, effort, provenance, prompt, product_file, source_url, date) | `folder/product_file` must match `ReviewOrchestrator/blind/source-html.sha256`; `folder/TRANSCRIPTION.md` is the chat transcript. `label` is the display name used across the site (tables, charts, headings); `name` is a longer descriptive name kept in the data export and search. Colour = position in the file (Okabe–Ito; dash patterns and marker shapes after 8). |
+| Candidate | `site/candidates.toml` (`[[candidate]]`: slug, folder, name, label, vendor, product, model, effort, provenance, prompt, product_file, source_url, date; optional thumbnail) | `folder/product_file` must match `ReviewOrchestrator/blind/source-html.sha256`; `folder/TRANSCRIPTION.md` is the chat transcript. `label` is the display name used across the site (tables, charts, headings); `name` is a longer descriptive name kept in the data export and search. Colour = position in the file (Okabe–Ito; dash patterns and marker shapes after 8). The card picture is the first review screenshot unless `thumbnail` names another of the candidate's review or judge screenshots. |
 | Review type | every `Review/<Type>-Review/` folder | id = `<type>` lowercased; column order follows `ReviewOrchestrator/README.md` §4, new types are appended alphabetically. |
 | Review | `Review/<Type>-Review/<folder>/REVIEW.md` (+ `PROMPT.txt`, `TRANSCRIPT.md`, `screenshots/`) | First table = criteria (`Criterion | Score | reason`); overall score = first number on the "Overall score" line or in an `| Overall | N |` row. The `candidate-NN` in the heading is checked against `ReviewOrchestrator/blind-mapping.json`. |
 | Judge | every `Judge/<Type>-Judge/` with `RANKING.md` and an entry in `Judge/judge-mapping.json` | id = folder name lowercased without `-Judge`. `RANKING.md` needs the sections Ranking criteria, Ranking (table `Rank | Candidate | Prompt | Justification`), Special elements (`- **<letters> — <element>**: <reason>`) and Summary of tests and approach. The letter set comes from the mapping, so any number of candidates works. Screenshots named `<Letter>-….jpg` are attributed via the mapping. |
@@ -105,6 +105,7 @@ No code changes are needed for any of these. Rebuild and run `python3 -I site/te
 2. Append its checksum to `ReviewOrchestrator/blind/source-html.sha256`:
    `sha256sum <folder>/<file> >> ReviewOrchestrator/blind/source-html.sha256`.
 3. Add a `[[candidate]]` table to `site/candidates.toml` with all fields (see the comment at the top of
-   the file). Its position fixes its chart colour.
+   the file). Its position fixes its chart colour. If its first review screenshot crops badly on the
+   cards (16:10, from the top), set `thumbnail` to a landscape screenshot of it.
 4. Judges and reviews that include it follow the two recipes above; judges that did not rank it show
    "–" and it is listed after the fully ranked candidates.
