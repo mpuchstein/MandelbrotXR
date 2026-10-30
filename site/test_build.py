@@ -348,9 +348,32 @@ def test_synthetic(tmp: str) -> None:
     model = data.load(repo)
     assert len(model.judges) == 6 and len(model.candidates) == 9 and len(model.review_types) == 4
     assert model.ranks(SYN_SLUG) == {"synthetic": 1}, model.ranks(SYN_SLUG)
+    # ranked by one judge of six: no standing, and outside the home page's top/bottom comparison
+    page = open(os.path.join(out, f"candidates/{SYN_SLUG}/index.html"), encoding="utf-8").read()
+    assert "Ranked by 1 of 6 judges" in page and "Not ranked by any judge" not in page, "candidate page misstates a partial ranking"
+    cards = open(os.path.join(out, "candidates/index.html"), encoding="utf-8").read()
+    card = next(a for a in cards.split("<article")[1:] if SYN_SLUG in a)
+    assert "ranked by 1 of 6 judges" in card and "not ranked by any judge" not in card, "candidate card misstates a partial ranking"
+    home = open(os.path.join(out, "index.html"), encoding="utf-8").read()
+    i = home.index("<h4>Bottom ")
+    assert "Synthetic 9" not in home[i:home.index("</div>", i)], "home bottom-k lists a candidate that not every judge ranked"
+    assert "Not in this comparison" in home, "home check does not name the partially ranked candidate"
     res = json.load(open(os.path.join(out, "data/results.json"), encoding="utf-8"))
     assert any(c.get("slug") == SYN_SLUG for c in res["candidates"])
     test_links(out)
+
+
+def test_home_ties(model: data.Model) -> None:
+    """The home page's derived check reports a mean-rank tie at the boundary of the row it belongs to."""
+    from types import SimpleNamespace
+    from sitelib.pages import home
+    ranked = [c.slug for c in model.ordered()]
+    means = {s: model.mean_rank(s) for s in ranked}
+    means[ranked[-3]] = means[ranked[-2]]  # a tie across the bottom-2 boundary only
+    model.mean_rank = means.get
+    rows = home.derived_check(SimpleNamespace(model=model), 4, 2).split('<div class="home-check-row">')
+    assert "ties with" not in rows[1], "the top row reports a tie that sits at the bottom boundary"
+    assert "ties with the first of them" in rows[2], "the bottom row misses the tie at its boundary"
 
 
 # ---------------------------------------------------------------- main
@@ -360,6 +383,8 @@ def main() -> None:
     test_mean_ranks(model)
     test_phase1_scores(model)
     print("ok  mean ranks, aggregated table and phase-1 scores match the READMEs")
+    test_home_ties(data.load(REPO))
+    print("ok  home page tie notes sit at the boundary of their own row")
     with tempfile.TemporaryDirectory(prefix="mxr-test-") as tmp:
         a, b = os.path.join(tmp, "a"), os.path.join(tmp, "b")
         build_ok(REPO, a)

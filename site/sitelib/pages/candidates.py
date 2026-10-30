@@ -170,9 +170,13 @@ def _card(site: Site, c) -> str:
     else:
         thumb = '<div class="cand-thumb placeholder" aria-hidden="true"><span>No screenshot</span></div>'
     st = m.standing().get(c.slug)
-    rank_line = (f'<p class="cand-rank"><span class="big">{_mean_html(site, c)}</span> mean rank'
-                 f'<br><span class="muted small">standing {standing_html(m, c)}</span></p>') if st else \
-        '<p class="cand-rank muted">not ranked by any judge</p>'
+    if st:
+        rank_line = (f'<p class="cand-rank"><span class="big">{_mean_html(site, c)}</span> mean rank'
+                     f'<br><span class="muted small">standing {standing_html(m, c)}</span></p>')
+    elif m.ranks(c.slug):  # ranked by some judges only: its mean is not comparable (as on the compare page)
+        rank_line = f'<p class="cand-rank muted">{standing_html(m, c)}</p>'
+    else:
+        rank_line = '<p class="cand-rank muted">not ranked by any judge</p>'
     return f"""<article class="card cand-card">
 {thumb}
 <div class="cand-card-body">
@@ -218,6 +222,9 @@ def _header(site: Site, c) -> str:
                 f'<span class="stat-v">{standing_html(m, c)}</span></span> '
                 f'<span class="stat"><span class="stat-k">Mean rank</span> <span class="stat-v">{_mean_html(site, c)}</span> {DERIVED}</span>'
                 f'<span class="muted small how">{esc(_how_mean(site, c))}; ties share a place.</span></p>')
+    elif m.ranks(c.slug):
+        n, total = m.coverage(c.slug)
+        rank = f'<p class="cand-standing muted">Ranked by {n} of {total} judges; a standing needs a rank from every judge.</p>'
     else:
         rank = '<p class="cand-standing muted">Not ranked by any judge.</p>'
     return f"""<header class="cand-head">

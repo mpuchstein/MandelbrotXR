@@ -91,20 +91,22 @@ def _ties_note(site: Site, slugs: list[str]) -> str:
 
 def derived_check(site: Site, k_top: int, k_bot: int) -> str:
     m = site.model
-    ranked = [c.slug for c in m.ordered() if m.mean_rank(c.slug) is not None]
+    # only candidates ranked by every judge have comparable means (Model.full); the rest are named below
+    ranked = [c.slug for c in m.ordered() if m.full(c.slug)]
     judges = m.judges
     nj = len(judges)
     out = []
 
-    def block(label: str, k: int, sel: list[str], judge_set) -> str:
+    def block(label: str, k: int, sel: list[str], judge_set, inside: int, outside: int, edge: str) -> str:
+        """inside/outside: indices into ranked of the selection's boundary member and its neighbour."""
         agree = [j for j in judges if judge_set(j, k) == set(sel)]
         differ = [j for j in judges if j not in agree]
         st = m.standing()
         boundary = ""
-        if len(ranked) > k:
-            inside, outside = ranked[k - 1] if k else None, ranked[k]
-            if inside and m.mean_rank(inside) == m.mean_rank(outside):
-                boundary = f" {esc(m.cand(outside).label)} ties with the last of them on mean rank {fmt_mean(m.mean_rank(outside))}."
+        if k and len(ranked) > k:
+            a, b = ranked[inside], ranked[outside]
+            if m.mean_rank(a) == m.mean_rank(b):
+                boundary = f" {esc(m.cand(b).label)} ties with the {edge} of them on mean rank {fmt_mean(m.mean_rank(b))}."
         diff = ""
         if differ:
             diff = " Differs: " + ", ".join(f'<a href="{judge_url(j)}">{esc(j.label)}</a>' for j in differ) + "."
@@ -116,8 +118,15 @@ def derived_check(site: Site, k_top: int, k_bot: int) -> str:
 
     top = ranked[:k_top]
     bot = ranked[-k_bot:] if k_bot else []
-    out.append(block(f"Top {k_top}", k_top, top, lambda j, k: {r.slug for r in j.rows if r.rank <= k}))
-    out.append(block(f"Bottom {k_bot}", k_bot, bot, lambda j, k: {r.slug for r in j.rows if r.rank > len(j.rows) - k}))
+    out.append(block(f"Top {k_top}", k_top, top, lambda j, k: {r.slug for r in j.rows if r.rank <= k},
+                     k_top - 1, k_top, "last"))
+    out.append(block(f"Bottom {k_bot}", k_bot, bot, lambda j, k: {r.slug for r in j.rows if r.rank > len(j.rows) - k},
+                     -k_bot, -k_bot - 1, "first"))
+    partial = [c for c in m.ordered() if m.ranks(c.slug) and not m.full(c.slug)]
+    if partial:
+        out.append('<p class="small muted">Not in this comparison, because not every judge ranked them: '
+                   + "; ".join(f'<a href="{cand_url(c)}">{esc(c.label)}</a> (ranked by {m.coverage(c.slug)[0]} of {nj} judges)'
+                               for c in partial) + ".</p>")
 
     # each judge's largest deviation from the consensus (mean rank over all judges)
     rows = []
