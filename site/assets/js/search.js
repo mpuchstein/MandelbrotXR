@@ -13,7 +13,9 @@
   const input = $("q"), kindsBox = $("search-kinds"), status = $("search-status"), list = $("search-results");
   const indexBase = form.dataset.index || "search-index/";
   const root = form.dataset.root || "";
-  const PAGE = 50, K1 = 1.2, B = 0.75, MAX_EXPANSIONS = 64, VERIFY_SHARDS = 4;
+  const PAGE = 50, K1 = 1.2, B = 0.75, MAX_EXPANSIONS = 64, VERIFY_SHARDS = 4, EAGER = 12;
+  const nojs = $("search-nojs");
+  if (nojs) nojs.hidden = true;
   const cache = new Map(), postingsCache = new Map(), titleCache = new Map();
   let meta, docs, lens, avgdl, stop = new Set(), gen = 0, state = null, timer = 0;
 
@@ -215,7 +217,7 @@
       if (s.my !== gen) return;
     }
     const page = s.accepted.slice(s.shown, s.shown + PAGE);
-    list.append(...page.map((r) => result(r, s)));
+    list.append(...page.map((r, i) => result(r, s, s.shown + i < EAGER)));
     s.shown += page.length;
     const total = s.accepted.length;
     if (!total && !s.pending.length) status.textContent = `No results for “${input.value.trim()}”.`;
@@ -233,15 +235,22 @@
     return e;
   };
 
-  function result(r, s) {
+  // The first EAGER results load their excerpt at once; the rest when they come near the viewport
+  // (or once the reader has scrolled past them), so a phone only fetches the passages it shows.
+  function result(r, s, eager) {
     const [url, title, kind, context] = docs[r.d];
     const li = el("li", "search-result"), head = el("p", "search-result-head"), a = el("a", "search-result-title", title);
     a.href = root + url.replace(/^\/+/, "");
     head.append(a, " ", el("span", "search-badge", kind));
-    const snip = el("p", "search-snippet", "…");
+    const snip = el("p", "search-snippet is-loading", "Loading excerpt…");
     snip.dataset.id = String(r.id);
-    li.append(head, el("p", "search-context", context), snip);
-    if (observer) observer.observe(snip); else fill(snip, s);
+    const ctx = el("p", "search-context");
+    // keep ISO timestamps on one line (they would otherwise break at their hyphens)
+    context.split(/(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)/).forEach((part, i) => {
+      if (part) ctx.append(i % 2 ? el("span", "search-time", part) : part);
+    });
+    li.append(head, ctx, snip);
+    if (eager || !observer) fill(snip, s); else observer.observe(snip);
     return li;
   }
 
@@ -251,42 +260,62 @@
     try {
       const text = (await passage(Number(snip.dataset.id)))[4];
       snip.replaceChildren(snippet(text, s.marks));
+      snip.classList.remove("is-loading");
     } catch (err) {
       console.warn("search: snippet unavailable", err);
       snip.textContent = "(excerpt unavailable)";
+      snip.classList.remove("is-loading");
     }
   }
 
+  // A window of about WIN characters around the first matched word (whole words at both ends);
+  // every match inside it is marked. If no indexed word is found in the text (e.g. the passage
+  // matched on its title), the passage start is shown.
+  const WIN = 220, LEAD = 70;
   function snippet(text, marks) {
     const hits = [];
     for (const m of text.matchAll(/[\p{L}\p{N}\p{M}]+/gu)) {
       if (words(m[0]).some((t) => marks.has(t))) hits.push([m.index, m.index + m[0].length]);
     }
-    let from = 0, to = text.length;
-    if (hits.length && hits[0][0] > 60) {
-      const sp = text.slice(hits[0][0] - 60, hits[0][0]).search(/\s/);
-      from = hits[0][0] - 60 + (sp < 0 ? 0 : sp + 1);
+    let from = 0;
+    if (hits.length && hits[0][0] > LEAD) {
+      from = hits[0][0] - LEAD;
+      const sp = text.slice(from, hits[0][0]).search(/\s/);
+      from = sp < 0 ? hits[0][0] : from + sp + 1;
     }
-    if (to > from + 200) {
-      const sp = text.slice(from + 120, from + 200).search(/\s\S*$/);
-      to = sp < 0 ? from + 200 : from + 120 + sp;
+    let to = Math.min(text.length, Math.max(from + WIN, hits.length ? hits[0][1] : 0));
+    if (to < text.length) {
+      const sp = text.slice(to - 60, to).search(/\s\S*$/);
+      if (sp >= 0 && to - 60 + sp > (hits.length ? hits[0][1] : from)) to = to - 60 + sp;
     }
     const frag = document.createDocumentFragment();
     let pos = from;
     if (from > 0) frag.append("… ");
     for (const [a, b] of hits) {
-      if (a < pos || a >= to) continue;
+      if (a < pos || b > to) continue;
       frag.append(text.slice(pos, a), el("mark", "", text.slice(a, b)));
       pos = b;
     }
-    frag.append(text.slice(pos, Math.max(pos, to)));
-    if (to < text.length) frag.append(" …");
+    const tail = text.slice(pos, Math.max(pos, to)).replace(/\s*…\s*$/, "");
+    frag.append(tail);
+    if (to < text.length || /…\s*$/.test(text)) frag.append(" …");
     return frag;
   }
 
   const observer = "IntersectionObserver" in window ? new IntersectionObserver((entries) => {
     for (const e of entries) if (e.isIntersecting) { observer.unobserve(e.target); fill(e.target); }
-  }, { rootMargin: "100px 0px" }) : null;
+  }, { rootMargin: "600px 0px" }) : null;
+  let scrollT = 0;
+  window.addEventListener("scroll", () => {
+    clearTimeout(scrollT);
+    scrollT = setTimeout(() => {
+      for (const snip of list.querySelectorAll(".search-snippet:not([data-done])")) {
+        if (snip.getBoundingClientRect().top > innerHeight + 600) break;
+        if (observer) observer.unobserve(snip);
+        fill(snip);
+      }
+    }, 120);
+  }, { passive: true });
 
   const more = el("button", "search-more", "Show more results");
   more.type = "button";

@@ -5,7 +5,8 @@ The index is built by sitelib/searchindex.py and queried in the browser by asset
 module writes the page with search.js's client contract:
   <form id="search-form" data-index="…/search-index/" data-root="…/"> with <input id="q" name="q">,
   #search-kinds (kind filters, filled by the script), #search-status (aria-live) and #search-results.
-Without JavaScript the form still submits (GET ?q=…) and the page explains where to browse instead.
+Without JavaScript the form still submits (GET ?q=…) and the page explains where to browse instead;
+search.js hides that note (#search-nojs) as soon as it starts.
 """
 from __future__ import annotations
 
@@ -49,7 +50,7 @@ def build(site: Site) -> None:
 <p class="search-examples small"><span class="muted">Try:</span> {ex}</p>
 <p id="search-status" aria-live="polite"></p>
 <ol id="search-results"></ol>
-<p class="nojs-note small muted">Search runs in your browser and needs JavaScript. Without it, browse the
+<p id="search-nojs" class="nojs-note small muted">Search runs in your browser and needs JavaScript. Without it, browse the
 <a href="@/rankings/">Rankings</a>, <a href="@/candidates/">Candidates</a>, <a href="@/judges/">Judges &amp; reviews</a>,
 <a href="@/techniques/">Techniques</a> and <a href="@/transcripts/">Transcripts</a> indexes.
 The index covers {len(docs):,} documents in {stats['passages']:,} passages: {kind_list}.</p>"""
@@ -70,7 +71,7 @@ def index_page(site: Site, stats: dict, n_docs: int) -> None:
 then only the shards a query needs.</p></header>
 <p>The format is documented at the top of <code>site/sitelib/searchindex.py</code>: <code>meta.json</code> (shard map and stop words),
 <code>p.json</code> (document table and passage lengths), <code>i-*.json</code> (postings by term prefix) and <code>d-*.json</code> (passage text).</p>
-<div class="table-wrap"><table><caption class="sr-only">Search index files and sizes</caption>
+<div class="table-wrap" role="region" aria-label="Search index files"><table><caption class="sr-only">Search index files and sizes</caption>
 <thead><tr><th scope="col">File</th><th scope="col" class="num">Size</th></tr></thead><tbody>{rows}</tbody></table></div>"""
     site.page("search-index/index.html", "Search index", body, section="search",
               crumbs=[("Search", "search/"), ("Search index", "")],

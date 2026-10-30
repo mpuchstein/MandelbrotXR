@@ -218,7 +218,7 @@ def _letters_html(site: Site, it: Item) -> str:
     for L, slug in zip(it.s.letters, it.s.slugs):
         c = m.cand(slug)
         parts.append(f'<span class="tq-map"><strong class="tq-letter">{esc(L)}</strong> → '
-                     f'<a href="{cand_url(c)}">{esc(c.name)}</a></span>')
+                     f'<a href="{cand_url(c)}">{esc(c.label)}</a></span>')
     return "; ".join(parts)
 
 
@@ -439,7 +439,7 @@ def _mismatches(site: Site) -> tuple[str, str]:
         if not qs:
             continue
         groups.append(f"""<section class="tq-mm-group" aria-labelledby="mm-{c.slug}">
-<h3 id="mm-{c.slug}"><a href="{cand_url(c)}">{esc(c.name)}</a> <span class="muted small tq-mm-meta">{_plural(len(qs), "quote")}</span></h3>
+<h3 id="mm-{c.slug}"><a href="{cand_url(c)}">{esc(c.label)}</a> <span class="muted small tq-mm-meta">{_plural(len(qs), "quote")}</span></h3>
 <ul class="tq-quotes">{"".join(q.html for q in qs)}</ul>
 </section>""")
     jl = ", ".join(f'<a href="{judge_url(j)}">{esc(j.label)}</a>' for j in judges) or "none"

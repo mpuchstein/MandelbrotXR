@@ -13,13 +13,13 @@ from .. import img, md
 from ..data import DataError
 from ..fragments import (caveats_html, cand_url, fmt_mean, fmt_score, judge_url, marker_svg, play_url, render_md,
                          review_url, standing_html)
-from ..layout import Site, esc, figure, prompt_badge
+from ..layout import Site, esc, figure
 
 ORDER = 100
 
 README = "Judge/README.md"
 PASSAGE_START = "The judges broadly agree"
-# Hero: one build-time render (about 5 s); the left edge is plain exterior, so the title sits there.
+# Hero: one build-time render (about 5 s), shown as a framed picture beside the title on a neutral surface.
 HERO_W, HERO_H = 720, 240
 HERO_VIEW = dict(center=(-0.7436, 0.1318), span=0.03, max_iter=250)
 
@@ -169,10 +169,11 @@ def hero(site: Site) -> str:
              (len(m.reviews), "blind reviews"), (nj, "blind judges")]
     dl = "".join(f'<div><dt>{esc(label)}</dt><dd>{n}</dd></div>' for n, label in stats)
     return (f'<section class="home-hero" aria-labelledby="home-title">'
-            f'<img class="home-hero-img" src="@/media/hero.png" width="{HERO_W}" height="{HERO_H}" alt="" decoding="async" fetchpriority="high">'
             f'<div class="home-hero-text"><p class="home-kicker">Experiment results</p>'
             f'<h1 id="home-title">MandelbrotXR</h1><p class="home-sub">{esc(sub)}</p>'
-            f'<dl class="home-stats">{dl}</dl></div></section>')
+            f'<dl class="home-stats">{dl}</dl></div>'
+            f'<img class="home-hero-img" src="@/media/hero.png" width="{HERO_W}" height="{HERO_H}" alt="" decoding="async" fetchpriority="high">'
+            f'</section>')
 
 
 def explainer(site: Site) -> tuple[str, str]:
@@ -251,15 +252,15 @@ def card(site: Site, c) -> str:
     nr = len(m.ranks(c.slug))
     return (f'<li class="card home-card">{thumb}'
             f'<div class="home-card-body">'
-            f'<h3 class="home-card-title"><a href="{cand_url(c)}">{esc(c.name)}</a> {prompt_badge(c.prompt)}</h3>'
+            f'<h3 class="home-card-title"><a href="{cand_url(c)}">{esc(c.label)}</a></h3>'
             f'<p class="home-card-meta muted small">{esc(c.vendor)} · {esc(c.product)}</p>'
             f'<div class="home-rank"><div><span class="home-label">Place</span><span class="home-place">{standing_html(m, c)}</span></div>'
             f'<div><span class="home-label">Mean rank <span class="derived">derived</span></span>'
             f'<span class="home-mean">{fmt_mean(mean)}</span>'
             f'<span class="home-of small muted">over {nr} judge{"s" if nr != 1 else ""}</span></div></div>'
             f'{_score_rows(site, c)}'
-            f'<p class="home-actions"><a class="btn btn-primary" href="{play_url(c)}">Play<span class="sr-only"> {esc(c.name)}</span></a>'
-            f'<a class="btn" href="{cand_url(c)}">Details<span class="sr-only"> on {esc(c.name)}</span></a></p>'
+            f'<p class="home-actions"><a class="btn btn-primary" href="{play_url(c)}">Play<span class="sr-only"> {esc(c.label)}</span></a>'
+            f'<a class="btn" href="{cand_url(c)}">Details<span class="sr-only"> on {esc(c.label)}</span></a></p>'
             f'</div></li>')
 
 

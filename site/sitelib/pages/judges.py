@@ -87,6 +87,11 @@ def _md_cell(text: str, src: str, site: Site) -> str:
     return md.render_inline(text, link=md_link(site, src))
 
 
+def _clink(c) -> str:
+    """Short candidate label (tables, lists), linked to the candidate page; Candidate.name only in headings."""
+    return f'<a href="{cand_url(c)}">{esc(c.label)}</a>'
+
+
 def _rv(blind_html: str, reveal_html: str) -> str:
     """Both views, rendered server-side; CSS shows one depending on .is-revealed on the scope."""
     return f'<span class="blind-label">{blind_html}</span><span class="reveal-label">{reveal_html}</span>'
@@ -96,7 +101,7 @@ def _toggle(scope_id: str, what_off: str, what_on: str) -> str:
     """The Blind/Reveal button (hidden until reveal.js runs) and its polite status line."""
     return (f'<div class="reveal-bar" role="group" aria-label="Blind or revealed view">'
             f'<button type="button" class="btn reveal-btn" data-reveal-toggle aria-pressed="false" aria-controls="{scope_id}" '
-            f'data-label-off="Reveal names" data-label-on="Names revealed" hidden>'
+            f'hidden>'
             f'<span class="reveal-icon" aria-hidden="true"></span><span class="reveal-text">Reveal names</span></button>'
             f'<p class="reveal-status small" data-reveal-status data-off="{esc(what_off)}" data-on="{esc(what_on)}" aria-live="polite">{esc(what_off)}</p>'
             f'</div>')
@@ -134,13 +139,14 @@ def _review_matrix(site: Site, *, caption: str) -> str:
                 cells.append('<td class="num muted">–</td>')
                 continue
             cells.append(f'<td class="num jr-score" style="{score_heat(r.overall)}"><a href="{review_url(r)}">'
-                         f'<span class="sr-only">{esc(label)} review of {esc(c.name)}: </span>{esc(fmt_score(r.overall))}</a></td>')
+                         f'<span class="sr-only">{esc(label)} review of {esc(c.label)}: </span>{esc(fmt_score(r.overall))}</a></td>')
         if not any(m.review(tid, c.slug) for tid, _, _ in types):
             continue
         nn = unblind.get(c.slug, "")
-        rows.append(f'<tr><th scope="row">{cand_link(c)} {prompt_badge(c.prompt)}</th>'
+        rows.append(f'<tr><th scope="row">{_clink(c)} {prompt_badge(c.prompt)}</th>'
                     f'<td><code>{esc(nn) or "–"}</code></td>{"".join(cells)}</tr>')
-    return (f'<div class="table-wrap"><table class="jr-matrix"><caption>{caption}</caption>'
+    return (f'<div class="table-wrap matrix-wrap" role="region" aria-label="Phase-1 overall scores: candidate × review type">'
+            f'<table class="jr-matrix"><caption>{caption}</caption>'
             f'<thead><tr><th scope="col">Candidate</th><th scope="col">Blind id</th>{head}</tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table></div>')
 
@@ -150,7 +156,8 @@ def _matrix_caption(site: Site) -> str:
     src = site.evidence(ORCH_README, "ReviewOrchestrator/README.md §4", anchor=f"#L{sec[0]}" if sec else "",
                         line=sec[0] if sec else None)
     return (f"Overall score (1–10) per phase-1 review, parsed from each REVIEW.md (first number of its overall-score line). "
-            f"Rows in mean-rank order from phase 2. Each score links to its review page. Ground truth: {src}.")
+            f"Rows in mean-rank order from phase 2. Each score links to its review page; cell shade is a single-hue scale, "
+            f"darker = higher score (the number is always printed). Ground truth: {src}.")
 
 
 # ---------------------------------------------------------------- blinding explanations
@@ -200,7 +207,7 @@ def build_judges_index(site: Site) -> None:
     for j in m.judges:
         first = j.rows[0] if j.rows else None
         last = j.rows[-1] if j.rows else None
-        pick = lambda r: (f'{cand_link(m.cand(r.slug))} <span class="muted small">(saw {esc(r.letter)})</span>' if r else "–")
+        pick = lambda r: (f'{_clink(m.cand(r.slug))} <span class="muted small">(saw {esc(r.letter)})</span>' if r else "–")
         material = _md_cell(j.material, JUDGE_README, site) if j.material else "—"
         focus = _md_cell(j.focus, JUDGE_README, site) if j.focus else "—"
         rows.append(f'<tr><th scope="row"><a href="{judge_url(j)}">{esc(j.label)}</a></th><td>{material}</td><td>{focus}</td>'
@@ -219,7 +226,7 @@ candidates against each other. Every page below shows the material verbatim, wit
 {_toc([("judges", "Judges (phase 2)"), ("reviews", "Reviews (phase 1)"), ("phases", "How the blinding worked")])}
 <section aria-labelledby="judges">
 <h2 id="judges">Judges <span class="muted jr-count">phase 2 · {len(m.judges)}</span></h2>
-<div class="table-wrap"><table class="jr-judges">
+<div class="table-wrap" role="region" aria-label="Judges table"><table class="jr-judges">
 <caption>Material and focus verbatim from the {judges_src}. #1 and last pick are revealed via
 {site.evidence(JUDGE_MAPPING, "Judge/judge-mapping.json")}; “saw” is the letter the judge used.</caption>
 <thead><tr><th scope="col">Judge</th><th scope="col">Material</th><th scope="col">Special-elements focus</th>
@@ -252,13 +259,13 @@ def build_reviews_index(site: Site) -> None:
             n = _line_no(r.md, r.overall_line)
             ev = site.evidence(r.files["REVIEW.md"], "REVIEW.md", anchor=f"#L{n}" if n else "", line=n)
             rows.append(f'<tr><th scope="row"><a href="{review_url(r)}">{esc(r.title)}</a></th>'
-                        f'<td>{cand_link(c)} {prompt_badge(c.prompt)}</td>'
+                        f'<td class="jr-nowrap">{_clink(c)} {prompt_badge(c.prompt)}</td>'
                         f'<td class="num">{esc(fmt_score(r.overall))}</td>'
                         f'<td><code class="jr-line">{esc(r.overall_line)}</code> {ev}</td></tr>')
         parts.append(f"""
 <section aria-labelledby="t-{esc(tid)}">
 <h3 id="t-{esc(tid)}">{esc(label)} reviews <span class="muted jr-count">{len(rs)} · {site.evidence(f"Review/{tfolder}", f"Review/{tfolder}/")}</span></h3>
-<div class="table-wrap"><table class="jr-list">
+<div class="table-wrap" role="region" aria-label="{esc(label)} reviews"><table class="jr-list">
 <caption>Sorted by the blind id the reviewer saw. Score = first number of the verbatim line on the right.</caption>
 <thead><tr><th scope="col">Review (heading as written)</th><th scope="col">Candidate (revealed)</th>
 <th scope="col" class="num">Overall</th><th scope="col">Source line</th></tr></thead>
@@ -311,7 +318,7 @@ def _alert_quotes(site: Site, j: Judge) -> str:
     if not patched and not quotes:
         return ""
     items = "".join(
-        f'<li>{_rv(f"<strong>{esc(l)}</strong>", f"<strong>{esc(l)}</strong> = " + cand_link(m.cand(j.mapping[l])))}: '
+        f'<li>{_rv(f"<strong>{esc(l)}</strong>", f"<strong>{esc(l)}</strong> = " + _clink(m.cand(j.mapping[l])))}: '
         f'{n} <code>alert(</code> call{"s" if n != 1 else ""} rewritten in the served copy</li>' for l, n in patched)
     lead = (f'<p>From {site.evidence(JUDGE_MAPPING, "Judge/judge-mapping.json")} (<code>alerts_patched</code>):</p><ul>{items}</ul>'
             if patched else
@@ -340,7 +347,7 @@ def _agreement(site: Site, j: Judge) -> str:
 <p class="small">Kendall τ-b between this judge's ranking and each other judge's, over the candidates both ranked:
 (concordant − discordant pairs) / √((pairs not tied in A) × (pairs not tied in B)). 1 = identical order, −1 = reversed.
 Computed by the site build from the rankings; not part of any judge's output.</p>
-<div class="table-wrap jr-narrow"><table>
+<div class="table-wrap jr-narrow" role="region" aria-label="Kendall τ-b with the other judges"><table>
 <thead><tr><th scope="col">Other judge</th><th scope="col" class="num">τ-b</th><th scope="col" class="num">Common candidates</th></tr></thead>
 <tbody>{"".join(rows)}</tbody></table></div>
 </section>"""
@@ -352,8 +359,9 @@ def build_judge(site: Site, j: Judge) -> None:
     url = judge_url(j)
     letters = sorted(j.mapping)
     name = lambda l: m.cand(j.mapping[l]).name
+    short = lambda l: m.cand(j.mapping[l]).label
     rv_letter = lambda l: _rv(f'<strong class="jr-letter">{esc(l)}</strong>',
-                              f'<a href="{cand_url(m.cand(j.mapping[l]))}">{esc(name(l))}</a>')
+                              f'<a href="{cand_url(m.cand(j.mapping[l]))}">{esc(short(l))}</a>')
 
     def at(heading: str) -> tuple[str, int | None]:
         n = _line_no(j.md, heading)
@@ -392,7 +400,7 @@ def build_judge(site: Site, j: Judge) -> None:
 <section aria-labelledby="ranking">
 <h2 id="ranking">Ranking</h2>
 <p class="small muted">Best to worst, justifications verbatim. {site.evidence(rp, "RANKING.md", anchor=a, line=n)}</p>
-<div class="table-wrap"><table class="jr-ranking">
+<div class="table-wrap" role="region" aria-label="Ranking"><table class="jr-ranking">
 <thead><tr><th scope="col" class="num">Rank</th><th scope="col">Candidate</th><th scope="col">Prompt</th><th scope="col">Justification</th></tr></thead>
 <tbody>{"".join(rrows)}</tbody></table></div>
 </section>"""
@@ -403,7 +411,7 @@ def build_judge(site: Site, j: Judge) -> None:
     for l in letters:
         c = m.cand(j.mapping[l])
         alert = f'<td class="num">{j.alerts_patched.get(l, 0)}</td>' if any_alert else ""
-        mrows.append(f'<tr><th scope="row" class="jr-letter">{esc(l)}</th><td>{cand_link(c)}</td><td><code>{esc(c.folder)}</code></td>'
+        mrows.append(f'<tr><th scope="row" class="jr-letter">{esc(l)}</th><td>{_clink(c)}</td><td><code>{esc(c.folder)}</code></td>'
                      f'<td>{prompt_badge(j.letter_prompt[l])}</td><td class="num">{j.rank.get(c.slug, "–")}</td>{alert}</tr>')
     fc = ""
     if "MAPPING.md" in j.files:
@@ -420,7 +428,7 @@ def build_judge(site: Site, j: Judge) -> None:
 <h2 id="mapping">Revealed mapping</h2>
 <p class="small">Which candidate stood behind each letter. The judge never saw this; it comes from
 {site.evidence(JUDGE_MAPPING, "Judge/judge-mapping.json")}{" and " + mapping_link if mapping_link else ""}.</p>
-<div class="table-wrap jr-narrow"><table class="jr-mapping">
+<div class="table-wrap jr-narrow" role="region" aria-label="Revealed mapping"><table class="jr-mapping">
 <thead><tr><th scope="col">Letter</th><th scope="col">Candidate</th><th scope="col">Folder</th><th scope="col">Prompt</th>
 <th scope="col" class="num">Judge's rank</th>{'<th scope="col" class="num">alert( patched</th>' if any_alert else ""}</tr></thead>
 <tbody>{"".join(mrows)}</tbody></table></div>
@@ -438,7 +446,7 @@ def build_judge(site: Site, j: Judge) -> None:
     a_s, n_s = at("## Special elements")
     sp = []
     for s in j.special:
-        chips = "".join(f'<span class="chip jr-chip">{_rv(f"<strong class=jr-letter>{esc(l)}</strong>", f"<strong class=jr-letter>{esc(l)}</strong> = " + cand_link(m.cand(j.mapping[l])))}</span>' for l in s.letters)
+        chips = "".join(f'<span class="chip jr-chip">{_rv(f"<strong class=jr-letter>{esc(l)}</strong>", f"<strong class=jr-letter>{esc(l)}</strong> = " + _clink(m.cand(j.mapping[l])))}</span>' for l in s.letters)
         sp.append(f'<li><div class="jr-sp-text">{_md_cell(s.raw, rp, site)}</div><div class="jr-sp-who" aria-label="Credited candidates">{chips}</div></li>')
     special = f"""
 <section aria-labelledby="special">
@@ -462,7 +470,7 @@ def build_judge(site: Site, j: Judge) -> None:
         for s in j.shots:
             f = figure(site, s)
             if s.slug:
-                f = f.replace("</figcaption>", f'<span class="reveal-label jr-shot-name">{esc(m.cand(s.slug).name)}</span></figcaption>', 1)
+                f = f.replace("</figcaption>", f'<span class="reveal-label jr-shot-name">{esc(m.cand(s.slug).label)}</span></figcaption>', 1)
             figs.append(f)
         sdir = f"{j.dir}/screenshots"
         shots = f"""

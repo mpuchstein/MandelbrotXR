@@ -25,7 +25,8 @@ table.schema td { vertical-align: top; overflow-wrap: anywhere; }
 table.schema .derived { margin-left: var(--space-1); }
 .data-notes { padding-left: 1.2em; }
 .data-notes li { margin-bottom: var(--space-2); }
-.data-sec details.fold pre { max-height: 28rem; overflow: auto; font-size: var(--text-sm); }
+/* folded examples grow instead of scrolling inside the page (no unfocusable scroll regions) */
+.data-sec details.fold pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-sm); }
 
 /* changelog */
 .changelog { list-style: none; margin: var(--space-4) 0 0; padding: 0; }

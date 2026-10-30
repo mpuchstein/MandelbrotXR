@@ -1,7 +1,7 @@
 // Blind/Reveal toggle for judge and review pages.
 // The server renders both labels (.blind-label / .reveal-label) inside a [data-reveal-scope] container;
-// this script only toggles .is-revealed on it, keeps every [data-reveal-toggle] button's aria-pressed and
-// label in sync, and stores the state in the URL hash (#reveal) so a revealed view can be linked.
+// this script only toggles .is-revealed on it, keeps every [data-reveal-toggle] button's aria-pressed
+// in sync, and stores the state in the URL hash (#reveal) so a revealed view can be linked.
 // Without JavaScript the blind view and the server-rendered mapping stay visible.
 (() => {
   "use strict";
@@ -16,11 +16,8 @@
     if (on === state) return;
     state = on;
     scopes.forEach((s) => s.classList.toggle("is-revealed", on));
-    buttons.forEach((b) => {
-      b.setAttribute("aria-pressed", on ? "true" : "false");
-      const t = b.querySelector(".reveal-text");
-      if (t) t.textContent = on ? b.dataset.labelOn : b.dataset.labelOff;
-    });
+    // the label stays "Reveal names"; aria-pressed carries the state (a toggle must not rename itself)
+    buttons.forEach((b) => b.setAttribute("aria-pressed", on ? "true" : "false"));
     statuses.forEach((s) => {
       const text = on ? s.dataset.on : s.dataset.off;
       if (text && s.textContent !== text) s.textContent = text;

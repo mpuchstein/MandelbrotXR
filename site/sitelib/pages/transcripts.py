@@ -42,6 +42,7 @@ _DETAILS_CLOSE = re.compile(r"</details>\s*$", re.I)
 _SUMMARY = re.compile(r"\s*<summary>(.*)</summary>\s*$", re.I)
 _TOOL_CALL = re.compile(r"\*\*Tool call `([^`]+)`\*\*(?::\s*(.*))?\s*$")
 _HEADING_TAG = re.compile(r"<(/?)h([1-6])([\s>])")
+_TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}[T ][\d:.]+Z?")
 _HR = re.compile(r" {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$")
 
 
@@ -296,7 +297,8 @@ def render_msg(m: Msg, link) -> str:
     if "thinking" in m.meta.lower() and body:
         body = (f'<details class="fold fold-thinking"><summary><span class="fold-kind">{esc(m.meta)}</span>'
                 f' <span class="fold-size">{esc(_size(m.body))}</span></summary>\n{body}</details>')
-    meta = f' <span class="msg-meta">{esc(m.meta)}</span>' if m.meta else ""
+    # the meta goes on its own line below the role (CSS); timestamps never break at their hyphens
+    meta = f' <span class="msg-meta">{_TIMESTAMP.sub(lambda t: f"<span class=tx-time>{t.group(0)}</span>", esc(m.meta))}</span>' if m.meta else ""
     return (f'<article class="msg msg-{role_class(m.role)}" id="m-{m.n}" data-line="{m.line}">'
             f'<header class="msg-head"><h3 class="msg-title"><span class="msg-role">{esc(m.role)}</span>{meta}</h3>'
             f'<a class="msg-num" href="#m-{m.n}" title="Permalink to message {m.n}">#{m.n}</a></header>'
@@ -508,27 +510,28 @@ def build_index(site: Site, ts: list[Transcript]) -> None:
                     tds.append(f'<td><a href="{site.local(t.src.path)}">{esc(stats(t))}</a> '
                                f'<a class="gh small" href="{esc(site.gh(t.src.path))}" rel="noopener">GitHub</a></td>'
                                if t else '<td class="muted">–</td>')
-                rows.append(f'<tr><th scope="row"><a href="{cand_url(m.cand(s))}">{esc(m.cand(s).name)}</a></th>{"".join(tds)}</tr>')
-            parts.append('<div class="table-wrap"><table class="tx-matrix"><caption>Review agent logs by candidate (rows) and '
+                rows.append(f'<tr><th scope="row"><a href="{cand_url(m.cand(s))}">{esc(m.cand(s).label)}</a></th>{"".join(tds)}</tr>')
+            parts.append('<div class="table-wrap matrix-wrap" role="region" aria-label="Review agent logs: candidate × review type">'
+                         '<table class="tx-matrix"><caption>Review agent logs by candidate (rows) and '
                          'review type (columns).</caption><thead><tr><th scope="col">Candidate</th>'
                          + "".join(f'<th scope="col">{esc(lab)} review</th>' for _, lab in types)
                          + f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
             rest = [t for t in items if t not in cell.values()]
             if rest:
-                parts.append(f'<div class="table-wrap"><table>{head}<tbody>{"".join(row(t, esc(t.src.title)) for t in rest)}</tbody></table></div>')
+                parts.append(f'<div class="table-wrap" role="region" aria-label="{esc(heading)}: other logs"><table class="tx-list">{head}<tbody>{"".join(row(t, esc(t.src.title)) for t in rest)}</tbody></table></div>')
         else:
             body = []
             for t in items:
                 label = esc(t.src.title)
                 if kind == "chat" and t.src.slug:
-                    label = esc(m.cand(t.src.slug).name)
+                    label = esc(m.cand(t.src.slug).label)
                 elif kind == "blind":
                     nn = t.src.path.split("/")[2]
-                    label = esc(nn) + (f' <span class="muted small">({esc(m.cand(t.src.slug).name)})</span>' if t.src.slug else "")
+                    label = esc(nn) + (f' <span class="muted small">({esc(m.cand(t.src.slug).label)})</span>' if t.src.slug else "")
                 elif kind == "judge":
                     label = esc(t.src.title.removesuffix(" judge agent log")) + " judge"
                 body.append(row(t, label))
-            parts.append(f'<div class="table-wrap"><table>{head}<tbody>{"".join(body)}</tbody></table></div>')
+            parts.append(f'<div class="table-wrap" role="region" aria-label="{esc(heading)}"><table class="tx-list">{head}<tbody>{"".join(body)}</tbody></table></div>')
         parts.append('</section>')
     site.page("transcripts/index.html", "Transcripts", "\n".join(parts), section="transcripts", crumbs=[("Transcripts", "")],
               description="Rendered chat transcripts and agent logs of the MandelbrotXR experiment, with an anchor per message.")

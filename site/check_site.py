@@ -67,7 +67,10 @@ def serve(root: str):
         def log_message(self, *args):
             pass
     handler = functools.partial(Quiet, directory=root)
-    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    class Server(http.server.ThreadingHTTPServer):
+        def handle_error(self, request, client_address):
+            pass  # the browser aborting a transfer (BrokenPipe) is not a site error
+    srv = Server(("127.0.0.1", 0), handler)
     t = threading.Thread(target=srv.serve_forever, daemon=True)
     t.start()
     try:
@@ -159,10 +162,8 @@ def check_rankings(page, base: str) -> str:
     check(len(cols) >= 5, f"rankings: only {len(cols)} sortable columns")
     def values(col):
         return page.evaluate("""(col) => {
-          const ths = Array.from(document.querySelectorAll('#rank-matrix thead th'));
-          const idx = ths.findIndex(th => th.querySelector(`button[data-col="${col}"]`));
           return Array.from(document.querySelectorAll('#rank-matrix tbody tr')).filter(r => !r.hidden)
-            .map(r => { const c = r.cells[idx]; return c ? (c.dataset.sort ?? c.textContent.trim()) : ''; });
+            .map(r => { const c = r.querySelector(`:scope > [data-col="${col}"]`); return c ? (c.dataset.sort ?? c.textContent.trim()) : ''; });
         }""", col)
     def key(v):
         try:

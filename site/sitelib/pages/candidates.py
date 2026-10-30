@@ -10,9 +10,9 @@ import os
 import re
 
 from .. import md, qr
-from ..fragments import (cand_url, compare_url, fmt_mean, fmt_score, judge_url, md_link, play_url,
+from ..fragments import (cand_url, cat, compare_url, fmt_mean, fmt_score, judge_url, md_link, play_url,
                          review_url, standing_html)
-from ..layout import Site, cand_link, esc, figure, prompt_badge
+from ..layout import Site, esc, figure, prompt_badge
 
 ORDER = 300
 
@@ -95,16 +95,22 @@ def _score_list(site: Site, c, cls: str = "scores") -> str:
 
 # ---------------------------------------------------------------- charts
 
-def _bar_chart(review) -> str:
-    """Horizontal bar chart (0–10) of one review's criteria; labels above bars, score at bar end."""
+def _label_link(c) -> str:
+    """Short candidate label (tables, charts, cross-references); Candidate.name is for this page's heading."""
+    return f'<a href="{cand_url(c)}">{esc(c.label)}</a>'
+
+
+def _bar_chart(review, c) -> str:
+    """Horizontal bar chart (0–10) of one review's criteria; labels above bars, score at bar end.
+    Bars use the candidate's fixed series colour; every bar carries its criterion name and value as text."""
     W, gut, row, top = 400, 36, 42, 6
     scale = (W - gut) / 10
     n = len(review.criteria)
     H = top + n * row + 22
     tid = f"chart-{review.type_id}-{review.slug}"
     parts = [f'<svg class="chart crit-chart" viewBox="0 0 {W} {H}" role="img" aria-labelledby="{tid}-t {tid}-d" '
-             f'preserveAspectRatio="xMinYMin meet">',
-             f'<title id="{tid}-t">{esc(review.type_label)} review criteria, scores 0–10</title>',
+             f'preserveAspectRatio="xMinYMin meet" style="--key:{cat(c.index)}">',
+             f'<title id="{tid}-t">{esc(review.type_label)} review of {esc(c.label)}: criterion scores, 0–10</title>',
              f'<desc id="{tid}-d">' + esc("; ".join(f"{cr.name}: {fmt_score(cr.score)}" for cr in review.criteria)) + "</desc>"]
     base_y = top + n * row
     for t in range(0, 11, 2):
@@ -150,13 +156,13 @@ def _card(site: Site, c) -> str:
     return f"""<article class="card cand-card">
 {thumb}
 <div class="cand-card-body">
-<h2 class="cand-title"><a href="{cand_url(c)}">{esc(c.name)}</a> {prompt_badge(c.prompt)}</h2>
+<h2 class="cand-title"><span class="cand-key" style="--key:{cat(c.index)}" aria-hidden="true"></span><a href="{cand_url(c)}">{esc(c.label)}</a> {prompt_badge(c.prompt)}</h2>
 <p class="muted small cand-sub">{esc(c.vendor)} · {esc(c.product)}</p>
 {rank_line}
 <p class="small muted scores-head">Phase-1 overall scores</p>
 {_score_list(site, c)}
-<p class="cand-actions"><a class="btn btn-primary" href="{play_url(c)}">Play<span class="sr-only"> {esc(c.name)}</span></a>
-<a class="btn" href="{cand_url(c)}">Details<span class="sr-only"> on {esc(c.name)}</span></a></p>
+<p class="cand-actions"><a class="btn btn-primary" href="{play_url(c)}">Play<span class="sr-only"> {esc(c.label)}</span></a>
+<a class="btn" href="{cand_url(c)}">Details<span class="sr-only"> on {esc(c.label)}</span></a></p>
 </div>
 </article>"""
 
@@ -399,7 +405,7 @@ def _criteria(site: Site, c) -> str:
 <blockquote class="quote overall-line"><p>{_overall_html(site, r)}</p>
 <cite>Overall-score line, verbatim — {_ev(site, src, "REVIEW.md" + (f" line {line}" if line else ""), line)}</cite></blockquote>
 </div>
-<figure class="chart-fig">{_bar_chart(r)}<figcaption class="small muted">Criterion scores (0–10 axis). Same data, with the reviewer's reasons, in the table below.</figcaption></figure>
+<figure class="chart-fig">{_bar_chart(r, c)}<figcaption class="small muted">Criterion scores (0–10 axis). Same data, with the reviewer's reasons, in the table below.</figcaption></figure>
 <div class="table-wrap"><table class="crit-table">
 <caption>{esc(label)} review criteria with the reviewer's one-line reasons, verbatim.</caption>
 <thead><tr><th scope="col">Criterion</th><th scope="col" class="num">Score</th><th scope="col">One-line reason (verbatim)</th></tr></thead>
@@ -449,7 +455,7 @@ def _specials(site: Site, c) -> str:
                 continue
             letters = []
             for L, sl in zip(s.letters, s.slugs):
-                who = "this candidate" if sl == c.slug else cand_link(m.cand(sl))
+                who = "this candidate" if sl == c.slug else _label_link(m.cand(sl))
                 letters.append(f'<span class="letter">{esc(L)}</span> = {who}')
             line = _find_line(j.md, s.raw)
             items.append(f"""<li><blockquote class="quote"><p>{_inline(site, p, s.raw)}</p>
@@ -519,6 +525,7 @@ def _facts(site: Site, c) -> str:
     for nn in _blind_ids(site, c.slug):
         blind.append(f"<code>{esc(nn)}</code>")
     rows = [
+        ("Folder", f'<code>{esc(c.folder)}/</code> <span class="small muted">{site.evidence(c.folder, "files")}</span>'),
         ("Vendor", esc(c.vendor)),
         ("Product", esc(c.product)),
         ("Model (as recorded)", f"<code>{esc(c.model)}</code>"),
@@ -555,7 +562,7 @@ def _links(site: Site, c) -> str:
         li.append(f'<li><a href="{review_url(r)}">{esc(label)} review</a>{t}</li>')
     li.append(f'<li><a href="{esc(site.gh(c.html_path))}" rel="noopener">Product source on GitHub</a> · <a href="{play_url(c)}">Play</a></li>')
     others = [o for o in m.ordered() if o.slug != c.slug]
-    cmp = "".join(f'<li><a href="{compare_url(c, o)}">vs {esc(o.name)}</a></li>' for o in others)
+    cmp = "".join(f'<li><a href="{compare_url(c, o)}">vs {esc(o.label)}</a></li>' for o in others)
     return (f'<ul class="link-list">{"".join(li)}</ul>'
             + (f'<h3>Compare side by side</h3><ul class="compare-list">{cmp}</ul>' if others else ""))
 

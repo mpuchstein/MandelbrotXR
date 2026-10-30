@@ -399,7 +399,8 @@ def sec_blinding(site: Site, srcs: dict[str, Src]) -> str:
             letter = next((l for l, s in j.mapping.items() if s == c.slug), None)
             cells.append(f'<td class="letter">{esc(letter) if letter else "–"}</td>')
         body_rows.append(f"<tr><th scope=\"row\">{clink(c)}</th>{''.join(cells)}</tr>")
-    t2 = ('<div class="table-wrap"><table class="meth-table letters"><caption>Letter each judge saw for each candidate, from '
+    t2 = ('<div class="table-wrap matrix-wrap" role="region" aria-label="Letters per judge: candidate × judge">'
+          '<table class="meth-table letters"><caption>Letter each judge saw for each candidate, from '
           f'{site.evidence("Judge/judge-mapping.json", "judge-mapping.json")} (– = not shown to that judge).</caption>'
           f'<thead><tr><th scope="col">Candidate</th>{head}</tr></thead><tbody>{"".join(body_rows)}</tbody></table></div>')
 
@@ -573,7 +574,8 @@ def sec_serving(site: Site, srcs: dict[str, Src]) -> str:
                 cells.append(f'<td class="num">{esc(p) + " <span class=muted>(" + esc(letter) + ")</span>" if p else "–"}</td>')
             trs.append(f"<tr><th scope=\"row\">{clink(c)}</th>{''.join(cells)}</tr>")
         srcl = ", ".join(site.evidence(j.files["PROMPT.txt"], f"{j.label} PROMPT.txt") for j in bj)
-        out.append('<div class="table-wrap"><table class="meth-table"><caption>Port (and letter) of each candidate per browser judge, '
+        out.append('<div class="table-wrap matrix-wrap" role="region" aria-label="Ports per browser judge: candidate × judge">'
+                   '<table class="meth-table"><caption>Port (and letter) of each candidate per browser judge, '
                    f'parsed from {srcl}.</caption><thead><tr><th scope="col">Candidate</th>{head}</tr></thead><tbody>{"".join(trs)}</tbody></table></div>')
     jlogs = []
     for dp, dn, fn in os.walk(os.path.join(site.repo, "Judge")):
@@ -860,7 +862,8 @@ def sec_prompts(site: Site, srcs: dict[str, Src]) -> str:
             cells.append(f'<td>{site.evidence(r.files["PROMPT.txt"], "PROMPT.txt")}</td>' if r and "PROMPT.txt" in r.files else "<td>–</td>")
         trs.append(f"<tr><th scope=\"row\">{clink(c)}</th>{''.join(cells)}</tr>")
     out.append('<h3>Every agent prompt</h3><p>Each reviewer and judge prompt was saved before its agent launched. Review prompts:</p>'
-               '<div class="table-wrap"><table class="meth-table"><caption>Phase-1 reviewer prompts, one per candidate and review type.</caption>'
+               '<div class="table-wrap matrix-wrap" role="region" aria-label="Reviewer prompts: candidate × review type">'
+               '<table class="meth-table"><caption>Phase-1 reviewer prompts, one per candidate and review type.</caption>'
                f'<thead><tr><th scope="col">Candidate</th>{head}</tr></thead><tbody>{"".join(trs)}</tbody></table></div>')
     jl = "".join(f'<li>{esc(j.label)} judge: {site.evidence(j.files["PROMPT.txt"], j.files["PROMPT.txt"])}</li>'
                  for j in m.judges if "PROMPT.txt" in j.files)

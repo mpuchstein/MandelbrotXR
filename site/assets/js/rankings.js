@@ -101,8 +101,6 @@
       if (vis) shown.add(th.dataset.col);
       for (const r of rows) cell(r, th.dataset.col).hidden = !vis;
     }
-    const group = document.getElementById("rk-g-judges");
-    if (group) { group.colSpan = Math.max(1, shown.size); group.hidden = !shown.size; }
     const all = state.judges === "all";
     for (const key of ["mean", "spread"]) {
       const b = cols.get(key);

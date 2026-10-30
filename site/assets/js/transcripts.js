@@ -61,7 +61,29 @@
     else if (h) { const el = document.getElementById(h); if (el) reveal(el); }
   }
 
+  // A table or code block that scrolls but holds nothing focusable gets tabindex="0" and a name,
+  // so keyboard users can scroll it (axe: scrollable-region-focusable). Checked on load, on resize
+  // and whenever a fold opens, because folded content has no size until then.
+  const FOCUSABLE = "a[href], button, input, select, textarea, summary, [tabindex]";
+  function markScrollables(root) {
+    root.querySelectorAll(".table-wrap, pre").forEach((el) => {
+      if (el.hasAttribute("tabindex") || !el.offsetParent) return;
+      const scrolls = el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
+      if (!scrolls || el.querySelector(FOCUSABLE)) return;
+      el.tabIndex = 0;
+      if (!el.hasAttribute("role")) el.setAttribute("role", "region");
+      if (!el.hasAttribute("aria-label")) el.setAttribute("aria-label", el.tagName === "PRE" ? "Scrollable code" : "Scrollable table");
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
+    const main = document.querySelector("main");
+    if (main) {
+      markScrollables(main);
+      main.addEventListener("toggle", (e) => { if (e.target.open) markScrollables(e.target); }, true);
+      let t = 0;
+      window.addEventListener("resize", () => { clearTimeout(t); t = setTimeout(() => markScrollables(main), 200); });
+    }
     const tools = document.querySelector("[data-tx-tools]");
     if (tools) {
       tools.hidden = false;

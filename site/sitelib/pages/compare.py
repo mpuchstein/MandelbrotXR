@@ -15,8 +15,8 @@ from fractions import Fraction
 from itertools import combinations
 
 from .. import md
-from ..fragments import (cand_url, caveats_html, cat, compare_url, fmt_mean, fmt_score, judge_url, md_link, play_url,
-                         review_url, standing_html)
+from ..fragments import (cand_url, caveats_html, cat, cat_dash, compare_url, fmt_mean, fmt_score, judge_url, marker_svg, md_link,
+                         play_url, review_url, standing_html)
 from ..layout import Site, esc, figure, prompt_badge
 
 ORDER = 400
@@ -67,6 +67,12 @@ def _cols(a_html: str, b_html: str, a, b, cls: str = "") -> str:
     return (f'<div class="cmp-cols {cls}">'
             f'<div class="cmp-side" style="--side:{cat(a.index)}">{a_html}</div>'
             f'<div class="cmp-side" style="--side:{cat(b.index)}">{b_html}</div></div>')
+
+
+def _wrap(label: str) -> str:
+    """Opening tag of a matrix scroll container (sticky header row + first column, base.css .matrix-wrap);
+    focusable and named so it can be scrolled by keyboard."""
+    return f'<div class="table-wrap matrix-wrap cmp-tw" tabindex="0" role="region" aria-label="{esc(label)} (scrolls)">'
 
 
 def _family(folder: str) -> str | None:
@@ -126,8 +132,8 @@ def suggestions(m) -> list[tuple[object, object, str, str]]:
         cs = sorted(cs, key=lambda c: (c.prompt, c.index))
         for a, b in combinations(cs, 2):
             add(a, b, f"Same model, prompt {a.prompt} vs {b.prompt}",
-                f"The folders differ only in the trailing <code>-v…</code>: <code>{esc(f)}</code>. "
-                f"Different prompts; each was judged against its own.")
+                f"Same vendor, product, model and effort; only the prompt differs "
+                f"(the folder names differ only in their trailing <code>-v…</code>). Each was judged against its own prompt.")
 
     # 3. biggest disagreement: widest range of per-judge rank differences (A − B)
     best = None
@@ -153,7 +159,7 @@ def picker(site: Site, a=None, b=None, *, swap: bool = True) -> str:
 
     def sel(name: str, label: str, cur) -> str:
         opts = "".join(f'<option value="{esc(c.slug)}"{" selected" if cur is not None and c.slug == cur.slug else ""}>'
-                       f"{esc(c.name)}</option>" for c in m.ordered())
+                       f"{esc(c.label)}</option>" for c in m.ordered())
         return (f'<div class="cmp-field"><label for="cmp-{name}">{label}</label>'
                 f'<select id="cmp-{name}" name="{name}" aria-describedby="cmp-hint">{opts}</select></div>')
 
@@ -178,15 +184,15 @@ def build_index(site: Site) -> None:
     sug = suggestions(m)
     cards = "".join(
         f'<li class="card cmp-sug"><p class="cmp-sug-k">{esc(title)}</p>'
-        f'<p class="cmp-sug-pair"><a href="{compare_url(a, b)}">{esc(a.name)} <span class="muted">vs</span> {esc(b.name)}</a></p>'
+        f'<p class="cmp-sug-pair"><a href="{compare_url(a, b)}">{esc(a.label)} <span class="muted">vs</span> {esc(b.label)}</a></p>'
         f'<p class="small muted">{reason}</p></li>' for a, b, title, reason in sug)
     groups = []
     for a in cs:
-        links = "".join(f'<li><a href="{compare_url(a, b)}"><span class="sr-only">{esc(a.name)} </span>vs {esc(b.name)}</a></li>'
+        links = "".join(f'<li><a href="{compare_url(a, b)}"><span class="sr-only">{esc(a.label)} </span>vs {esc(b.label)}</a></li>'
                         for b in cs if b.slug != a.slug)
         groups.append(f'<section class="cmp-group" aria-labelledby="g-{esc(a.slug)}">'
                       f'<h3 id="g-{esc(a.slug)}"><span class="cmp-dot" style="--side:{cat(a.index)}" aria-hidden="true"></span>'
-                      f'{esc(a.name)} {prompt_badge(a.prompt)}</h3><ul>{links}</ul></section>')
+                      f'{esc(a.label)} {prompt_badge(a.prompt)}</h3><ul>{links}</ul></section>')
     n = len(cs)
     body = f"""<h1>Compare two candidates</h1>
 <p class="lede">Pick any two of the {n} candidates to see them side by side: the rank every judge gave them, their
@@ -212,7 +218,7 @@ both directions; the reverse page swaps the columns.</p>
     site.search_doc("compare/", "Compare two candidates", "page", "Compare",
                     "Compare any two candidates side by side: judge ranks, phase-1 scores, justifications, special "
                     "elements and screenshots. " + " ".join(f"{c.name} {c.label}" for c in cs)
-                    + " " + " ".join(f"{t}: {a.name} vs {b.name}" for a, b, t, _r in sug))
+                    + " " + " ".join(f"{t}: {a.label} vs {b.label}" for a, b, t, _r in sug))
 
 
 # ---------------------------------------------------------------- pair page sections
@@ -234,8 +240,8 @@ def _card(site: Site, side: str, c) -> str:
 <h3 class="cmp-name"><a href="{cand_url(c)}">{esc(c.name)}</a> {prompt_badge(c.prompt)}</h3>
 <p class="small muted cmp-sub">{esc(c.vendor)} · {esc(c.product)}</p>
 {rank}
-<p class="cmp-btns"><a class="btn btn-primary" href="{play_url(c)}">Play<span class="sr-only"> {esc(c.name)}</span></a>
-<a class="btn" href="{cand_url(c)}">Candidate page<span class="sr-only">: {esc(c.name)}</span></a></p>
+<p class="cmp-btns"><a class="btn btn-primary" href="{play_url(c)}">Play<span class="sr-only"> {esc(c.label)}</span></a>
+<a class="btn" href="{cand_url(c)}">Candidate page<span class="sr-only">: {esc(c.label)}</span></a></p>
 </article>"""
 
 
@@ -313,7 +319,7 @@ def _ranks(site: Site, a, b) -> str:
                + (f", tied with <strong>{ct}</strong>" if ct else "") + ".</p>") if both else \
         "<p>No judge ranked both candidates, so their ranks cannot be compared judge by judge.</p>"
     return f"""{summary}
-<div class="table-wrap cmp-tw"><table class="cmp-table">
+{_wrap("Ranks of A and B by judge")}<table class="cmp-table">
 <caption class="sr-only">Rank given by each blind judge to A and B (1 = best)</caption>
 <thead><tr><th scope="col">Judge</th>{_th_side("A", a)}{_th_side("B", b)}<th scope="col" class="num"><span class="cmp-long">Difference</span><span class="cmp-short" aria-hidden="true">Diff.</span><br><span class="small muted">A − B</span></th><th scope="col">Ranked higher</th></tr></thead>
 <tbody>{"".join(rows)}</tbody></table></div>
@@ -324,9 +330,11 @@ quoted from each judge's <code>RANKING.md</code>, linked under Justifications.</
 
 
 def _mirror_chart(m, a, b) -> str:
-    """Mirrored horizontal bars of the phase-1 overall scores: A grows left, B grows right (0–10)."""
+    """Mirrored horizontal bars of the phase-1 overall scores: A grows left, B grows right (0–10).
+    Each side is labelled directly (A top left, B below it on the right, each with its series marker);
+    the viewBox stays narrow so the text keeps its size on a 390 px screen."""
     types = m.review_types
-    W, half, top, row = 480, 170, 34, 34
+    W, half, top, row = 360, 130, 52, 34
     cx = W / 2
     sc = half / 10
     H = top + len(types) * row + 22
@@ -337,8 +345,10 @@ def _mirror_chart(m, a, b) -> str:
     p = [f'<svg class="chart cmp-mirror" viewBox="0 0 {W} {H}" role="img" aria-labelledby="{cid}-t {cid}-d">',
          f'<title id="{cid}-t">Phase-1 overall scores out of 10: A ({esc(a.label)}) left, B ({esc(b.label)}) right</title>',
          f'<desc id="{cid}-d">{esc(desc)}</desc>',
-         f'<text class="cmp-mh" x="{cx - 8}" y="14" text-anchor="end">A · {esc(a.label)}</text>',
-         f'<text class="cmp-mh" x="{cx + 8}" y="14" text-anchor="start">B · {esc(b.label)}</text>']
+         marker_svg(a.index, 6, 10, extra=' class="cmp-mk"'),
+         f'<text class="cmp-mh" x="16" y="15" text-anchor="start">A · {esc(a.label)}</text>',
+         marker_svg(b.index, W - 6, 30, extra=' class="cmp-mk"'),
+         f'<text class="cmp-mh" x="{W - 16}" y="35" text-anchor="end">B · {esc(b.label)}</text>']
     base = top + len(types) * row
     for t in (0, 5, 10):
         for sgn in ((-1, 1) if t else (1,)):
@@ -356,7 +366,8 @@ def _mirror_chart(m, a, b) -> str:
                 continue
             w = max(0.0, min(10.0, r.overall)) * sc
             x = cx - w if sgn < 0 else cx
-            p.append(f'<rect class="cmp-bar" x="{x:.1f}" y="{y + 14}" width="{w:.1f}" height="14" rx="2" style="fill:{cat(c.index)}"/>')
+            p.append(f'<rect class="cmp-bar" x="{x:.1f}" y="{y + 14}" width="{w:.1f}" height="14" rx="2" style="fill:{cat(c.index)}'
+                     + (f';stroke-dasharray:{cat_dash(c.index)}' if cat_dash(c.index) else "") + '"/>')
             tx = cx + sgn * (w + 5)
             p.append(f'<text class="cmp-mv" x="{tx:.1f}" y="{y + 25}" text-anchor="{"end" if sgn < 0 else "start"}">'
                      f'{esc(fmt_score(r.overall))}</text>')
@@ -413,7 +424,7 @@ def _scores(site: Site, a, b) -> str:
 plus an overall score. Higher is better. Scores link to the full review.</p>
 <figure class="cmp-fig">{_mirror_chart(m, a, b)}<figcaption class="small muted">Overall score per review type, mirrored:
 A to the left of the centre line, B to the right. The same numbers are in the table below.</figcaption></figure>
-<div class="table-wrap cmp-tw"><table class="cmp-table">
+{_wrap("Phase-1 overall scores of A and B")}<table class="cmp-table">
 <caption>Phase-1 overall score of each blind review (1–10, higher is better). Difference = A − B.</caption>
 <thead><tr><th scope="col">Review</th>{_th_side("A", a)}{_th_side("B", b)}<th scope="col" class="num"><span class="cmp-long">Difference</span><span class="cmp-short" aria-hidden="true">Diff.</span><br><span class="small muted">A − B</span></th><th scope="col">Scored higher</th></tr></thead>
 <tbody>{"".join(rows)}</tbody></table></div>"""]
@@ -430,7 +441,7 @@ A to the left of the centre line, B to the right. The same numbers are in the ta
         tid = esc(t.replace("_", "-"))
         out.append(f"""<section class="cmp-sub-sec" aria-labelledby="crit-{tid}">
 <h3 id="crit-{tid}">{esc(label)} review criteria</h3>
-<div class="table-wrap cmp-tw"><table class="cmp-table cmp-crit">
+{_wrap(f"{label} review criteria of A and B")}<table class="cmp-table cmp-crit">
 <caption>{esc(label)} review: criterion scores (1–10). Difference = A − B. Criteria are specific to this review type.</caption>
 <thead><tr><th scope="col">Criterion</th>{_th_side("A", a)}{_th_side("B", b)}<th scope="col" class="num"><span class="cmp-long">Difference</span><span class="cmp-short" aria-hidden="true">Diff.</span><br><span class="small muted">A − B</span></th></tr></thead>
 <tbody>{"".join(crow)}</tbody></table></div>
@@ -536,7 +547,7 @@ def _shots_side(site: Site, side: str, c) -> str:
     figs = "".join(figure(site, s) for s in shots)
     total = len(c.shots)
     more = (f'<p class="small"><a href="{cand_url(c)}#screenshots">All {total} screenshot{"s" if total != 1 else ""} '
-            f'of {esc(c.name)}</a> on the candidate page, with their verbatim captions.</p>')
+            f'of {esc(c.label)}</a> on the candidate page, with their verbatim captions.</p>')
     return head + f'<div class="gallery cmp-gallery">{figs}</div>' + more
 
 

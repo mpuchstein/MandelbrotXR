@@ -7,12 +7,11 @@ judge materials. A judge that did not rank a candidate shows '–' (sorted last)
 """
 from __future__ import annotations
 
-import math
 import os
 
 from ..fragments import (cand_url, caveats_html, cat, cat_dash, fmt_mean, fmt_score, heat, heat_legend, judge_url,
-                         review_url, score_heat)
-from ..layout import Site, esc, prompt_badge
+                         marker_svg, review_url, score_heat)
+from ..layout import Site, esc
 
 ORDER = 200
 
@@ -34,6 +33,12 @@ def _material(j) -> str:
 def _num(x: float) -> str:
     """Fixed-format sort key (deterministic)."""
     return f"{x:.4f}"
+
+
+def fmt_tau(v: float) -> str:
+    """'−0.5', '0', '1' — short, with a real minus sign."""
+    t = f"{v:g}"
+    return t.replace("-", "−")
 
 
 def _spread_text(lo: int, hi: int, sd: float) -> str:
@@ -77,30 +82,24 @@ def _matrix(site: Site) -> tuple[str, str]:
                 f'<span class="rk-label">{label}</span><span class="rk-ind" aria-hidden="true"></span></button>'
                 f'{meta}</th>')
 
-    span2 = ' rowspan="2"'
-    head = [th("standing", '<span class="sr-only">Place</span><span aria-hidden="true">#</span>', plain="Place", cls="num rk-stick rk-stick-1", sort="ascending", extra=span2),
-            th("name", "Candidate", typ="text", cls="rk-stick rk-stick-2", extra=span2)]
-    if judges:
-        head.append(f'<th scope="colgroup" colspan="{len(judges)}" class="rk-group" id="rk-g-judges">'
-                    f'Judges <span class="rk-gsub">phase 2 · rank, 1 = best</span></th>')
-    sub = []
-    for j in judges:
+    # one header row (the column groups are named in each header: "judge" / "review"), so the
+    # header cells line up one-to-one with the body cells and the row can stick on its own
+    head = [th("standing", '<span class="sr-only">Place</span><span aria-hidden="true">#</span>', plain="Place", cls="num rk-stick rk-stick-1", sort="ascending"),
+            th("name", "Candidate", typ="text", cls="rk-stick rk-stick-2")]
+    for k, j in enumerate(judges):
         mat = _material(j)
         meta = (f'<span class="rk-meta"><span class="rk-mat rk-mat-{mat}" title="{esc(j.material or mat)}">{mat}</span> '
                 f'<a href="{judge_url(j)}" aria-label="{esc(j.label)} judge page">judge</a></span>')
-        sub.append(th(f"j-{j.id}", esc(j.label), meta=meta, cls="num rk-judge",
-                      extra=f' data-material="{mat}"'))
+        head.append(th(f"j-{j.id}", f'{esc(j.label)}<span class="sr-only"> judge rank</span>', plain=f"{j.label} judge rank",
+                       meta=meta, cls="num rk-judge" + (" rk-first" if k == 0 else ""), extra=f' data-material="{mat}"'))
     head.append(th("mean", plain="Mean rank", label='<span class="rk-l-all">Mean rank</span><span class="rk-l-sub" hidden>Mean over shown judges</span>',
-                   meta='<span class="rk-meta"><span class="derived">derived</span></span>', cls="num rk-derived", extra=span2))
+                   meta='<span class="rk-meta"><span class="derived">derived</span></span>', cls="num rk-derived rk-first"))
     head.append(th("spread", plain="Spread", label='<span class="rk-l-all">Spread</span><span class="rk-l-sub" hidden>Spread over shown judges</span>',
-                   meta='<span class="rk-meta">min–max · σ <span class="derived">derived</span></span>', cls="rk-derived",
-                   extra=span2))
-    if rtypes:
-        head.append(f'<th scope="colgroup" colspan="{len(rtypes)}" class="rk-group rk-group-r">'
-                    f'Phase-1 reviews <span class="rk-gsub">overall score, 1–10</span></th>')
-    for tid, _folder, tlabel in rtypes:
-        sub.append(th(f"r-{tid}", esc(tlabel), first="desc",
-                      meta='<span class="rk-meta">review</span>', cls="num rk-review"))
+                   meta='<span class="rk-meta">min–max · σ <span class="derived">derived</span></span>', cls="rk-derived"))
+    for k, (tid, _folder, tlabel) in enumerate(rtypes):
+        head.append(th(f"r-{tid}", f'{esc(tlabel)}<span class="sr-only"> review score</span>', plain=f"{tlabel} review score",
+                       first="desc", meta='<span class="rk-meta">review · 1–10</span>',
+                       cls="num rk-review" + (" rk-first" if k == 0 else "")))
 
     body = []
     for pos, c in enumerate(cands):
@@ -116,8 +115,8 @@ def _matrix(site: Site) -> tuple[str, str]:
             why = "not ranked by every judge, so its mean rank is not comparable" if ranks else "not ranked"
             cells = [f'<td class="num rk-stick rk-stick-1 muted" data-col="standing" data-sort="" title="{why}">–'
                      f'<span class="sr-only"> ({why})</span></td>']
-        cells.append(f'<th scope="row" class="rk-stick rk-stick-2" data-col="name" data-sort="{esc(c.name.casefold())}">'
-                     f'<a href="{cand_url(c)}">{esc(c.name).replace(" · ", "&nbsp;· ")}</a> {prompt_badge(c.prompt)}</th>')
+        cells.append(f'<th scope="row" class="rk-stick rk-stick-2" data-col="name" data-sort="{esc(c.label.casefold())}">'
+                     f'<a href="{cand_url(c)}">{esc(c.label).replace(" · ", "&nbsp;· ")}</a></th>')
         for j in judges:
             r = ranks.get(j.id)
             if r is None:
@@ -143,15 +142,15 @@ def _matrix(site: Site) -> tuple[str, str]:
             else:
                 cells.append(f'<td class="num rk-heat" data-col="r-{esc(tid)}" data-sort="{_num(rv.overall)}" '
                              f'style="{_heatvars(score_heat(rv.overall))}"><a href="{review_url(rv)}" '
-                             f'aria-label="{esc(tlabel)} review of {esc(c.name)}: {fmt_score(rv.overall)} out of 10">'
+                             f'aria-label="{esc(tlabel)} review of {esc(c.label)}: {fmt_score(rv.overall)} out of 10">'
                              f'{fmt_score(rv.overall)}</a></td>')
         body.append(f'<tr data-slug="{esc(c.slug)}" data-prompt="{esc(c.prompt)}" data-order="{pos}">{"".join(cells)}</tr>')
 
     caption = "Judge ranks (1 = best), derived mean rank and spread, and phase-1 overall scores per candidate."
-    table = (f'<div class="table-wrap rk-wrap" tabindex="0" role="region" aria-labelledby="matrix-h">'
+    table = (f'<div class="table-wrap matrix-wrap rk-wrap" tabindex="0" role="region" aria-labelledby="matrix-h">'
              f'<table id="rank-matrix" class="rk-matrix" data-nmax="{nmax}">'
              f'<caption class="sr-only">{esc(caption)}</caption>'
-             f'<thead><tr>{"".join(head)}</tr><tr>{"".join(sub)}</tr></thead><tbody>{"".join(body)}</tbody></table></div>')
+             f'<thead><tr>{"".join(head)}</tr></thead><tbody>{"".join(body)}</tbody></table></div>')
 
     # controls (hidden without JS; rankings.js unhides them)
     prompts = sorted({c.prompt for c in m.candidates}, key=lambda p: (len(p), p))
@@ -194,10 +193,8 @@ def _kendall(site: Site) -> str:
     def cell(t: float | None, n: int, diag: bool = False) -> str:
         if t is None:
             return f'<td class="num rk-tau muted">–<span class="rk-n">n={n}</span></td>'
-        mix = round(abs(t) * 40)
-        sign = "pos" if t > 0 else "neg" if t < 0 else "zero"
-        txt = "1" if diag else f"{t:.2f}"
-        return (f'<td class="num rk-tau rk-tau-{sign}{" rk-diag" if diag else ""}" style="--mix:{mix}%">'
+        txt = "1" if diag else f"{t:.2f}".replace("-", "−")
+        return (f'<td class="num rk-tau{" rk-diag" if diag else ""}" style="{_heatvars(score_heat(t, -1, 1))}">'
                 f'{txt}<span class="rk-n">n={n}</span></td>')
 
     head = "".join(f'<th scope="col" class="num"><a href="{judge_url(j)}">{esc(j.label)}</a></th>' for j in js)
@@ -218,7 +215,6 @@ def _kendall(site: Site) -> str:
                     f'<span class="rk-mat rk-mat-{_material(a)}">{_material(a)}</span></th>{"".join(cells)}'
                     f'<td class="num rk-avg">{avg}</td></tr>')
     valid = [(a, b, t) for a, b, t, _n in m.kendall_pairs() if t is not None]
-    neg_note = " (accent colour for agreement, red for negative τ)" if any(v[2] < 0 for v in valid) else ""
     extremes = ""
     if len(valid) > 1:
         hi = lo = valid[0]
@@ -229,16 +225,21 @@ def _kendall(site: Site) -> str:
                 lo = v
         extremes = (f" Here the closest pair is {esc(hi[0].label)} and {esc(hi[1].label)} (τ = {hi[2]:.2f}); "
                     f"the least similar is {esc(lo[0].label)} and {esc(lo[1].label)} (τ = {lo[2]:.2f}).")
+    steps = (-1, -0.5, 0, 0.5, 1)
+    sw = "".join(f'<span class="heat-swatch rk-tau-sw" style="{score_heat(v, -1, 1)}">{fmt_tau(v)}</span>' for v in steps)
+    tau_legend = (f'<span class="legend-scale" role="note"><span>τ colour</span><span class="heat-swatches" aria-hidden="true">'
+                  f'{sw}</span><span>darker = more agreement</span></span>')
     return f"""
 <section aria-labelledby="kendall-h">
 <h2 id="kendall-h">How much do the judges agree? <span class="derived">derived</span></h2>
 <p>Kendall’s τ<sub>b</sub> between every pair of judges, computed over the candidates both judges ranked (<em>n</em> per pair):</p>
-<p class="rk-formula"><span>τ<sub>b</sub> = (C − D) / √((C + D + T<sub>x</sub>)(C + D + T<sub>y</sub>))</span></p>
+<p class="rk-formula"><span>τ<sub>b</sub> = (C − D) /</span> <span>√((C + D + T<sub>x</sub>)(C + D + T<sub>y</sub>))</span></p>
 <p class="small muted">C and D are the numbers of candidate pairs the two judges order the same way (concordant) or the opposite way (discordant); T<sub>x</sub> and T<sub>y</sub> count pairs tied in only one of the two rankings (rankings here have no ties, so τ<sub>b</sub> equals plain Kendall τ). The last column averages a judge’s τ with all the others.</p>
 <p><strong>Reading guide:</strong> 1 = identical order, 0 = unrelated, −1 = exactly reversed; darker cells mean stronger agreement.{extremes}</p>
-<div class="table-wrap" tabindex="0" role="region" aria-labelledby="kendall-h">
+<p class="rk-legend">{tau_legend}</p>
+<div class="table-wrap matrix-wrap" tabindex="0" role="region" aria-labelledby="kendall-h">
 <table class="rk-kendall">
-<caption>Symmetric matrix; the diagonal is 1 by definition (hatched). Shading deepens with |τ|{neg_note}; every cell shows its value.</caption>
+<caption>Symmetric matrix; the diagonal is 1 by definition (hatched). One blue scale from τ = −1 (lightest) to τ = 1 (darkest); every cell shows its value.</caption>
 <thead><tr><th scope="col">Judge</th>{head}<th scope="col" class="num">Mean τ with others</th></tr></thead>
 <tbody>{"".join(rows)}</tbody>
 </table>
@@ -248,25 +249,6 @@ def _kendall(site: Site) -> str:
 
 # ---------------------------------------------------------------- bump chart
 
-def _shape(i: int, x: float, y: float, r: float = 5.5) -> str:
-    """Marker shape per candidate index (a second channel next to colour and the direct labels)."""
-    k = i % 8
-    if k == 0:
-        return f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}"/>'
-    if k == 1:
-        s = r * .9
-        return f'<rect x="{x - s:.1f}" y="{y - s:.1f}" width="{2 * s:.1f}" height="{2 * s:.1f}"/>'
-    sides, rot, star = {2: (4, 0, False), 3: (3, -90, False), 4: (3, 90, False), 5: (5, -90, False),
-                        6: (6, 0, False), 7: (5, -90, True)}[k]
-    pts = []
-    n = sides * (2 if star else 1)
-    for p in range(n):
-        a = math.radians(rot + 360 * p / n)
-        rr = (r * 1.25 if p % 2 == 0 else r * .55) if star else r * (1.2 if sides == 3 else 1.1)
-        pts.append(f"{x + rr * math.cos(a):.1f},{y + rr * math.sin(a):.1f}")
-    return f'<polygon points="{" ".join(pts)}"/>'
-
-
 def _bump(site: Site) -> str:
     m = site.model
     js = m.judges
@@ -275,7 +257,7 @@ def _bump(site: Site) -> str:
     cands = [c for c in m.ordered() if m.ranks(c.slug)]
     n = max(len(j.rows) for j in js)
     row_h, top, bottom = 36, 64, 20
-    left, right, axis = 210, 210, 28
+    left, right, axis = 170, 170, 28
     step = 120
     plot_w = max(step, (len(js) - 1) * step)
     width = axis + left + plot_w + right
@@ -320,15 +302,15 @@ def _bump(site: Site) -> str:
             if len(s) > 1:
                 lines += (f'<polyline class="hit" points="{p}"/><polyline class="case" points="{p}"/>'
                           f'<polyline class="ln" points="{p}"{dash}/>')
-        marks = "".join(_shape(c.index, x, y(r)) for x, r in pts if r is not None)
+        marks = "".join(marker_svg(c.index, x, y(r), r=5.5) for x, r in pts if r is not None)
         known = [(x, r) for x, r in pts if r is not None]
         (lx, lr), (rx, rr) = known[0], known[-1]
-        labels = (f'<text class="rk-bl" x="{x0 - 16:.1f}" y="{y(lr) + 4:.1f}" text-anchor="end">{esc(c.name)}</text>'
-                  f'<text class="rk-bl" x="{x0 + plot_w + 16:.1f}" y="{y(rr) + 4:.1f}">{esc(c.name)}</text>')
+        labels = (f'<text class="rk-bl" x="{x0 - 16:.1f}" y="{y(lr) + 4:.1f}" text-anchor="end">{esc(c.label)}</text>'
+                  f'<text class="rk-bl" x="{x0 + plot_w + 16:.1f}" y="{y(rr) + 4:.1f}">{esc(c.label)}</text>')
         parts.append(f'<g class="rk-series" style="--c:{cat(c.index)}">{lines}<g class="mk">{marks}</g>{labels}</g>')
     for c in cands:
         ranks = m.ranks(c.slug)
-        desc.append(f"{c.name}: " + ", ".join(f"{j.label} {ranks.get(j.id, '–')}" for j in js))
+        desc.append(f"{c.label}: " + ", ".join(f"{j.label} {ranks.get(j.id, '–')}" for j in js))
     desc_txt = ("Rank of each candidate (1 = best, at the top) for each judge, left to right in the order "
                 + ", ".join(j.label for j in js) + ". " + "; ".join(desc) + ".")
     svg = (f'<svg class="chart rk-bump" viewBox="0 0 {width:.0f} {height:.0f}" role="img" '
@@ -338,7 +320,7 @@ def _bump(site: Site) -> str:
     return f"""
 <section aria-labelledby="bump-h">
 <h2 id="bump-h">Ranks across judges</h2>
-<p>One line per candidate, from judge to judge (rank 1 at the top). Flat lines mean the judges agree; crossings are dissents. Each line is labelled at both ends and has its own marker shape, so colour is not needed to follow it. The judge × candidate matrix above is this chart’s table equivalent.</p>
+<p>One line per candidate, from judge to judge (rank 1 at the top). Flat lines mean the judges agree; crossings are dissents. Each line is labelled at both ends, so colour is not needed to follow it; every candidate keeps the same colour (and, past eight candidates, the same dash pattern and marker shape) in every chart on this site. The <a href="#matrix-h">judge × candidate matrix</a> above is this chart’s table equivalent.</p>
 <div class="rk-chart-scroll" tabindex="0" role="region" aria-label="Bump chart (scrolls sideways on narrow screens)">{svg}</div>
 </section>"""
 
