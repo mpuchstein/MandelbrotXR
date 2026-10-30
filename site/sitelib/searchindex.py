@@ -12,7 +12,9 @@ Output files in out_dir:
               shards maps a term prefix to an index file; a term lives under the
               longest prefix key it starts with (keys are 2 chars, longer when split).
   p.json      {"docs": [[url, title, kind, context, first_passage_id], ...],
-               "len": [token count per passage]}  (ranking and filtering without text)
+               "len": [token count per passage],
+               "same": [[passage id, id of the first passage with identical text], ...]}
+              (ranking, filtering and merging duplicate passages without text)
   i-<k>.json  {term: postings}; postings = base36 passage-id deltas joined by ","
               with ":<tf in base36>" appended when tf > 1.
   d-<k>.json  [[url, title, kind, context, text], ...] for passage ids
@@ -204,9 +206,11 @@ def build(docs: list[dict], out_dir: str) -> dict:
     per = max(1, round(DOC_TARGET / avg))
     for k in range(0, len(passages), per):
         files[f"d-{k // per}.json"] = _dump(passages[k:k + per])
-    files["p.json"] = _dump({"docs": table, "len": lengths})
+    first: dict[str, int] = {}
+    same = [[pid, first.setdefault(p[4], pid)] for pid, p in enumerate(passages)]
+    files["p.json"] = _dump({"docs": table, "len": lengths, "same": [s for s in same if s[0] != s[1]]})
     files["meta.json"] = _dump({
-        "v": 1,
+        "v": 2,
         "kinds": sorted({d["kind"] for d in order}),
         "n": len(passages),
         "shards": key_file,

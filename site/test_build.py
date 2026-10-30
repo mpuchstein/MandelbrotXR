@@ -192,6 +192,19 @@ def test_thumbnails(model: data.Model, out: str) -> None:
             assert c.thumbnail_path in home, f"home card of {c.slug} ignores its candidates.toml thumbnail"
 
 
+def test_search_same(out: str) -> None:
+    """p.json "same" maps a passage to the first passage with identical text; search merges only those."""
+    idx = os.path.join(out, "search-index")
+    p = json.load(open(os.path.join(idx, "p.json"), encoding="utf-8"))
+    texts = []
+    for k in range(json.load(open(os.path.join(idx, "meta.json"), encoding="utf-8"))["docshards"]):
+        texts += [row[4] for row in json.load(open(os.path.join(idx, f"d-{k}.json"), encoding="utf-8"))]
+    same, first = dict(p["same"]), {}
+    for pid, text in enumerate(texts):
+        assert same.get(pid, pid) == first.setdefault(text, pid), f"search index: passage {pid} merged with another text"
+    assert same, "search index marks no duplicate passages, but the anonymized transcripts repeat many"
+
+
 # ---------------------------------------------------------------- validation and extensibility
 
 def copy_repo(dst: str) -> str:
@@ -415,6 +428,8 @@ def main() -> None:
         test_results_json(a)
         test_thumbnails(model, a)
         print("ok  home cards use the candidates.toml thumbnails")
+        test_search_same(a)
+        print("ok  search merges only passages with identical text")
         build_ok(REPO, b)
         da, db = tree_digest(a), tree_digest(b)
         diff = sorted(k for k in set(da) | set(db) if da.get(k) != db.get(k))

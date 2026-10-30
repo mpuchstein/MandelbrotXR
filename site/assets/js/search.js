@@ -15,7 +15,7 @@
   const root = form.dataset.root || "";
   const PAGE = 50, K1 = 1.2, B = 0.75, MAX_EXPANSIONS = 64, VERIFY_SHARDS = 4, EAGER = 12;
   const cache = new Map(), postingsCache = new Map(), titleCache = new Map();
-  let meta, docs, lens, avgdl, stop = new Set(), gen = 0, state = null, timer = 0;
+  let meta, docs, lens, same, avgdl, stop = new Set(), gen = 0, state = null, timer = 0;
 
   const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
   const fetchJSON = (file) => {
@@ -39,7 +39,7 @@
 
   let ready = null;
   const loadBase = () => (ready ||= Promise.all([fetchJSON("meta.json"), fetchJSON("p.json")]).then(([m, p]) => {
-    meta = m; docs = p.docs; lens = p.len;
+    meta = m; docs = p.docs; lens = p.len; same = new Map(p.same || []);
     stop = new Set(m.stop);
     avgdl = lens.reduce((a, b) => a + b, 0) / Math.max(1, lens.length) || 1;
   }).catch((err) => { ready = null; throw err; }));
@@ -175,13 +175,13 @@
         ranked.push({ id, d, score });
       }
       ranked.sort((a, b) => b.score - a.score || a.id - b.id);
-      // An original transcript and its anonymized copy hold the same passage: collapse those into one
-      // result (same length, same term counts, same message context) that links to both.
+      // An original transcript and its anonymized copy hold the same passage: collapse passages with
+      // identical text (marked at build time in p.json "same") into one result that links to both.
       const seen = new Map(), unique = [];
       for (const r of ranked) {
-        const key = `${lens[r.id]}|${res.map((x) => x.tf.get(r.id)).join(",")}|${docs[r.d][3]}`;
+        const key = same.get(r.id) ?? r.id;
         const first = seen.get(key);
-        if (first) { first.also.push(r.d); continue; }
+        if (first) { if (r.d !== first.d && !first.also.includes(r.d)) first.also.push(r.d); continue; }
         r.also = [];
         seen.set(key, r);
         unique.push(r);
