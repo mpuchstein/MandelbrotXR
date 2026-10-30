@@ -222,6 +222,15 @@ def test_validation(tmp: str) -> None:
     old = edit(J, lambda s: json.dumps({k: ({l: v for l, v in m.items() if l != "H"} if k == "html" else m) for k, m in json.loads(s).items()}))
     expect_failure(repo, "missing from Judge/judge-mapping.json", "Judge/HTML-Judge/RANKING.md")
     open(J, "w", encoding="utf-8").write(old)
+    # two letters of one judge mapped to the same candidate
+    old = edit(J, lambda s: json.dumps({k: ({**m, "B": m["A"]} if k == "html" else m) for k, m in json.loads(s).items()}))
+    expect_failure(repo, "both map to", "Judge/judge-mapping.json")
+    open(J, "w", encoding="utf-8").write(old)
+    # two blind ids mapped to the same candidate
+    B = os.path.join(repo, "ReviewOrchestrator/blind-mapping.json")
+    old = edit(B, lambda s: json.dumps({k: (json.loads(s)["candidate-01"] if k == "candidate-02" else v) for k, v in json.loads(s).items()}))
+    expect_failure(repo, "both map to", "ReviewOrchestrator/blind-mapping.json")
+    open(B, "w", encoding="utf-8").write(old)
     # a candidate in a ranking but not in candidates.toml
     old = edit(J, lambda s: json.dumps({k: ({**m, "A": {**m["A"], "name": "Unknown-Model-v1"}} if k == "html" else m) for k, m in json.loads(s).items()}))
     expect_failure(repo, "candidate in a ranking but not in site/candidates.toml", "Judge/judge-mapping.json")
@@ -363,6 +372,15 @@ def test_synthetic(tmp: str) -> None:
     test_links(out)
 
 
+def test_parsers() -> None:
+    """Formats a later review or judge may use, beyond the ones in the repo today."""
+    for line in ("**Overall score (1–10)**: 7 / 10", "| **Overall score (1–10)** | **7** |"):
+        assert data.parse_overall(line, "x")[0] == 7, f"{line!r} parsed as {data.parse_overall(line, 'x')[0]}"
+    md = "## Special elements\n\n- **C — zoom claim vs code:** the transcript promises: zoom\n"
+    s = data.parse_special(md, "x", {"C": "c"})[0]
+    assert (s.title, s.reason) == ("zoom claim vs code", "the transcript promises: zoom"), (s.title, s.reason)
+
+
 def test_home_ties(model: data.Model) -> None:
     """The home page's derived check reports a mean-rank tie at the boundary of the row it belongs to."""
     from types import SimpleNamespace
@@ -385,6 +403,8 @@ def main() -> None:
     print("ok  mean ranks, aggregated table and phase-1 scores match the READMEs")
     test_home_ties(data.load(REPO))
     print("ok  home page tie notes sit at the boundary of their own row")
+    test_parsers()
+    print("ok  parsers skip a score scale and keep a colon-in-bold special-element title")
     with tempfile.TemporaryDirectory(prefix="mxr-test-") as tmp:
         a, b = os.path.join(tmp, "a"), os.path.join(tmp, "b")
         build_ok(REPO, a)

@@ -351,13 +351,17 @@ def _plain(s: str) -> str:
 
 # ---------------------------------------------------------------- parsers
 
+_SCALE = re.compile(r"\(\s*(?:\d+\s*[–-]\s*\d+|out of \d+)\s*\)", re.I)
+
+
 def parse_overall(md: str, path: str) -> tuple[float, str]:
     """First number of the overall-score line. Tolerates every format in the repo:
-    'Overall score: **4 / 10**', '8 / 10**', '5/10', '2.5 / 10 (rounded: 3)', '| **Overall** | **7** |'."""
+    'Overall score: **4 / 10**', '8 / 10**', '5/10', '2.5 / 10 (rounded: 3)', '| **Overall** | **7** |',
+    and skips a scale such as the review prompts' own label '**Overall score (1–10)**'."""
     for line in md.splitlines():
         if re.search(r"overall score", line, re.I):
             tail = re.split(r"overall score", line, flags=re.I)[1]
-            n = _num(tail)
+            n = _num(_SCALE.sub("", tail))
             if n is not None:
                 return n, line.strip()
         cells = [c.strip() for c in line.strip().strip("|").split("|")] if line.strip().startswith("|") else []
@@ -447,7 +451,8 @@ def parse_special(md: str, path: str, mapping: dict[str, str]) -> list[Special]:
                 fail(path, f"special element names letter {l!r}, which is missing from Judge/judge-mapping.json")
         title = lm.group("title").strip().rstrip(":").strip()
         rest = m.group("rest").strip()
-        if not rest.startswith(":") and ": " in rest:      # '**H — x** (details): reason', '**H — x** for y: reason'
+        closed = m.group("bold").rstrip().endswith(":")     # '**H — x:** reason': the title ends inside the bold
+        if not closed and not rest.startswith(":") and ": " in rest:  # '**H — x** (details): reason', '**H — x** for y: reason'
             extra, rest = rest.split(": ", 1)
             title = f"{title} {extra.strip()}"
         rest = rest.lstrip(":").strip()
@@ -596,6 +601,9 @@ def load(repo: str) -> Model:
     for nn, v in sorted(_json(repo, bpath).items()):
         if v.get("name") not in by_folder:
             fail(bpath, f"{nn} maps to {v.get('name')!r}, which is not in {cpath}")
+        other = next((k for k, s in blind.items() if s == by_folder[v["name"]].slug), None)
+        if other:
+            fail(bpath, f"{other} and {nn} both map to {v['name']!r}")
         blind[nn] = by_folder[v["name"]].slug
     unblind = {s: nn for nn, s in blind.items()}
 
@@ -663,6 +671,9 @@ def load(repo: str) -> Model:
             cc = by_folder[v["name"]]
             if v.get("prompt") != cc.prompt:
                 fail(mpath, f"{jid}.{letter}: prompt {v.get('prompt')!r} differs from {cpath} ({cc.prompt!r} for {cc.slug})")
+            other = next((l for l, s in mapping.items() if s == cc.slug), None)
+            if other:
+                fail(mpath, f"{jid}.{other} and {jid}.{letter} both map to {v['name']!r}")
             mapping[letter], lprompt[letter], alerts[letter] = cc.slug, v["prompt"], int(v.get("alerts_patched", 0))
         md = _read(repo, rp)
         rows = []
