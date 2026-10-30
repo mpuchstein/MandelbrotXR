@@ -18,7 +18,7 @@ import re
 from dataclasses import dataclass, field
 
 from .. import md
-from ..fragments import cand_url, judge_url, md_link, review_url, score_heat
+from ..fragments import cand_url, find_line, inline, judge_url, line_html, review_url, score_heat
 from ..layout import Site, esc
 
 ORDER = 500
@@ -180,22 +180,9 @@ def _display_order() -> list[Technique]:
 
 # ---------------------------------------------------------------- helpers
 
-def _line_of(text: str, needle: str) -> int | None:
-    needle = needle.strip()[:60]
-    if not needle:
-        return None
-    for i, line in enumerate(text.splitlines(), 1):
-        if needle in line:
-            return i
-    return None
-
 
 def _ev(site: Site, path: str, label: str, line: int | None) -> str:
     return site.evidence(path, label + (f", line {line}" if line else ""), anchor=f"#L{line}" if line else "", line=line)
-
-
-def _inline(site: Site, src: str, text: str) -> str:
-    return md.render_inline(text, link=md_link(site, src))
 
 
 def _plural(n: int, word: str) -> str:
@@ -222,12 +209,12 @@ def _letters_html(site: Site, it: Item) -> str:
 def _bullet(site: Site, it: Item, by_id: dict[str, Technique]) -> str:
     j = it.judge
     p = j.files["RANKING.md"]
-    line = _line_of(j.md, it.s.raw)
+    line = find_line(j.md, it.s.raw)
     tags = ""
     if it.tags:
         links = "".join(f'<a class="chip" href="#t-{t}">{esc(by_id[t].name)}</a>' for t in it.tags)
         tags = f'<p class="tq-tags small"><span class="muted">Label also matches:</span> {links}</p>'
-    return f"""<li id="{it.anchor}"><blockquote class="quote"><p>{_inline(site, p, it.s.raw)}</p>
+    return f"""<li id="{it.anchor}"><blockquote class="quote"><p>{inline(site, p, it.s.raw)}</p>
 <cite><a href="{judge_url(j)}">{esc(j.label)} judge</a> · {_letters_html(site, it)} · {_ev(site, p, "RANKING.md", line)}</cite></blockquote>{tags}</li>"""
 
 
@@ -350,19 +337,6 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[*_`]", "", s)).strip().lower()
 
 
-def _split_row(line: str) -> list[str]:
-    return [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", line.strip())[1:-1]]
-
-
-def _render_line(site: Site, src: str, line: str) -> str:
-    s = line.strip()
-    if s.startswith("|") and s.endswith("|"):
-        return " · ".join(_inline(site, src, c) for c in _split_row(s) if c)
-    s = re.sub(r"^#+\s+", "", s)
-    s = re.sub(r"^(?:[-*+]|\d+[.)])\s+", "", s)
-    return _inline(site, src, s)
-
-
 def _indent(line: str) -> int:
     return len(line) - len(line.lstrip(" "))
 
@@ -373,7 +347,7 @@ _ITEM = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
 def _quote_html(site: Site, src: str, body: str, children: list[str], cite: str) -> str:
     sub = ""
     if children:
-        sub = '<ul class="tq-sub">' + "".join(f"<li>{_render_line(site, src, c)}</li>" for c in children) + "</ul>"
+        sub = '<ul class="tq-sub">' + "".join(f"<li>{line_html(site, src, c)}</li>" for c in children) + "</ul>"
     return f'<li><blockquote class="quote"><p>{body}</p>{sub}<cite>{cite}</cite></blockquote></li>'
 
 
@@ -393,7 +367,7 @@ def _review_quotes(site: Site, r) -> list[Quote]:
         cite = (f'{page} · criterion “{esc(crit.name)}”, score {esc(f"{crit.score:g}")} / 10 · '
                 f'{_ev(site, path, "REVIEW.md", n)}')
         out.append(Quote(r.slug, (path, _norm(crit.reason)), (1, r.type_id, n or 0),
-                         _quote_html(site, path, _inline(site, path, crit.reason), [], cite)))
+                         _quote_html(site, path, inline(site, path, crit.reason), [], cite)))
     consumed: set[int] = set()
     for i, line in enumerate(lines, 1):
         if i in consumed or i in seen_lines or not line.strip() or not _mentions_claims(line):
@@ -409,7 +383,7 @@ def _review_quotes(site: Site, r) -> list[Quote]:
                 consumed.add(jx + 1)
         cite = f'{page} · {_ev(site, path, "REVIEW.md", i)}'
         out.append(Quote(r.slug, (path, _norm(line)), (1, r.type_id, i),
-                         _quote_html(site, path, _render_line(site, path, line), children, cite)))
+                         _quote_html(site, path, line_html(site, path, line), children, cite)))
     return out
 
 
@@ -419,22 +393,22 @@ def _judge_quotes(site: Site, j) -> list[Quote]:
     for n, s in enumerate(j.special, 1):
         if not _mentions_claims(s.raw):
             continue
-        line = _line_of(j.md, s.raw)
+        line = find_line(j.md, s.raw)
         letters = ", ".join(s.letters)
         anchor = f"b-{j.id.replace('_', '-')}-{n}"
         for slug in dict.fromkeys(s.slugs):
             cite = (f'<a href="{judge_url(j)}">{esc(j.label)} judge</a>, special element for letter(s) {esc(letters)} '
                     f'(<a href="#{anchor}">in the catalog</a>) · {_ev(site, p, "RANKING.md", line)}')
             out.append(Quote(slug, (p, _norm(s.raw)), (0, j.id, line or 0),
-                             _quote_html(site, p, _inline(site, p, s.raw), [], cite)))
+                             _quote_html(site, p, inline(site, p, s.raw), [], cite)))
     for row in j.rows:
         if not _mentions_claims(row.justification):
             continue
-        line = _line_of(j.md, row.justification)
+        line = find_line(j.md, row.justification)
         cite = (f'<a href="{judge_url(j)}">{esc(j.label)} judge</a>, ranking justification '
                 f'(letter {esc(row.letter)}, rank {row.rank} of {len(j.rows)}) · {_ev(site, p, "RANKING.md", line)}')
         out.append(Quote(row.slug, (p, _norm(row.justification)), (0, j.id, line or 0),
-                         _quote_html(site, p, _inline(site, p, row.justification), [], cite)))
+                         _quote_html(site, p, inline(site, p, row.justification), [], cite)))
     return out
 
 

@@ -1,12 +1,15 @@
 """Shared URLs, colours and text fragments for page modules (keep page logic out of here)."""
 from __future__ import annotations
 
+import re
+
 from .data import Candidate, Judge, Model, Review, fmt_mean, fmt_score
-from .layout import Site, esc
+from .layout import Site, esc, prompt_badge
 
 __all__ = ["bind", "HEAT_LEVELS", "cand_url", "play_url", "judge_url", "review_url", "compare_url", "cat", "cat_dash", "cat_marker",
            "marker_svg", "heat", "score_heat", "heat_legend",
-           "caveats_html", "standing_html", "fmt_mean", "fmt_score", "CAVEATS", "md_link", "render_md"]
+           "caveats_html", "standing_html", "fmt_mean", "fmt_score", "CAVEATS", "md_link", "render_md",
+           "WORDS", "count_word", "title_badge", "nb_dash", "inline", "split_row", "line_html", "find_line"]
 
 
 # ---------------------------------------------------------------- URLs (root-relative, '@/…')
@@ -101,18 +104,20 @@ CAVEATS = [
 ]
 
 REVIEWER_MODEL = "claude-opus-5-5"  # the model of every reviewer and judge (ReviewOrchestrator/README.md, Judge/README.md)
-_WORDS = "no one two three four five six seven eight nine ten eleven twelve".split()
+WORDS = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve")
 
 
-def _count(n: int) -> str:
-    return _WORDS[n] if n < len(_WORDS) else str(n)
+def count_word(n: int, cap: bool = False) -> str:
+    """A count for prose: spelled out up to twelve, digits above (always derived, never hardcoded)."""
+    w = WORDS[n] if 0 <= n < len(WORDS) else str(n)
+    return w[:1].upper() + w[1:] if cap else w
 
 
 def bind(model: Model) -> None:
     """Fill the data-dependent caveat text from the model (called once by build.py; mutates CAVEATS in place)."""
     same = sum(1 for c in model.candidates if c.model == REVIEWER_MODEL)
     text = "All reviewers and judges were Opus 5.5 agents"
-    text += (f", and {_count(same)} of the {_count(len(model.candidates))} candidates "
+    text += (f", and {count_word(same)} of the {count_word(len(model.candidates))} candidates "
              f"{'is an Opus 5.5 build' if same == 1 else 'are Opus 5.5 builds'}." if same else ".")
     CAVEATS[2] = ("Same model family", text)
 
@@ -131,6 +136,18 @@ def standing_html(m: Model, c: Candidate) -> str:
         return f'<span class="muted">ranked by {n} of {total} judges</span>'
     place, tied = st
     return f"{place}" + (' <span class="tie" title="tied on mean rank">(tie)</span>' if tied else "")
+
+
+def title_badge(c: Candidate) -> str:
+    """Prompt badge after a candidate's name in a title, unless the label already ends with the prompt
+    ('Opus 5.5 · v1' needs no extra [v1])."""
+    return "" if c.label.rstrip().endswith(c.prompt) else " " + prompt_badge(c.prompt)
+
+
+def nb_dash(text: str) -> str:
+    """Keep a dash with the word before it (' — ' -> NBSP + '— '), so a wrapped title never starts a line with it.
+    Visual only: the characters shown are the same."""
+    return re.sub(r" ([—–]) ", "\u00a0\\1 ", text)
 
 
 # ---------------------------------------------------------------- markdown with repo-aware links
@@ -165,3 +182,36 @@ def render_md(site: Site, src_path: str, text: str | None = None, **kw) -> str:
         with open(f"{site.repo}/{src_path}", encoding="utf-8") as f:
             text = f.read()
     return f'<div class="md">{md.render(text, link=md_link(site, src_path), **kw)}</div>'
+
+
+def inline(site: Site, src_path: str, text: str) -> str:
+    """Inline Markdown from the repo file src_path, with repo-aware links."""
+    from . import md
+    return md.render_inline(text, link=md_link(site, src_path))
+
+
+def split_row(line: str) -> list[str]:
+    """Cells of a Markdown table row; an escaped pipe stays in its cell."""
+    return [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", line.strip())[1:-1]]
+
+
+def line_html(site: Site, src_path: str, line: str) -> str:
+    """One source line rendered for quoting: block markers (heading hashes, list markers,
+    table pipes) are dropped, the text itself is kept verbatim."""
+    s = line.strip()
+    if s.startswith("|") and s.endswith("|"):
+        return " · ".join(inline(site, src_path, c) for c in split_row(s) if c)
+    s = re.sub(r"^#+\s+", "", s)
+    s = re.sub(r"^(?:[-*+]|\d+[.)])\s+", "", s)
+    return inline(site, src_path, s)
+
+
+def find_line(text: str, needle: str) -> int | None:
+    """1-based number of the first line of text that contains needle (its first 50 chars)."""
+    needle = needle.strip()[:50]
+    if not needle:
+        return None
+    for i, line in enumerate(text.splitlines(), 1):
+        if needle in line:
+            return i
+    return None

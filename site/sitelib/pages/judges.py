@@ -19,7 +19,7 @@ import re
 
 from .. import md
 from ..data import Judge, Review, section
-from ..fragments import cand_url, fmt_score, judge_url, review_url, render_md, score_heat
+from ..fragments import cand_url, fmt_score, judge_url, nb_dash, review_url, render_md, score_heat
 from ..layout import Site, cand_link, esc, figure, prompt_badge
 
 ORDER = 600
@@ -90,14 +90,8 @@ def _md_cell(text: str, src: str, site: Site) -> str:
     return md.render_inline(text, link=md_link(site, src))
 
 
-def _nb(text: str) -> str:
-    """Keep a dash with the word before it (' — ' -> NBSP + '— '), so a wrapped title never starts a line with it.
-    Visual only: the characters shown are the same."""
-    return re.sub(r" ([—–]) ", "\u00a0\\1 ", text)
-
-
 def _nb_title(text: str) -> str:
-    return esc(_nb(text))
+    return esc(nb_dash(text))
 
 
 _CELL = re.compile(r"<td>([^<]*)</td>")
@@ -764,7 +758,7 @@ def build_review(site: Site, r: Review) -> None:
 </div>
 """
     site.page(_rel(url), f"{r.title}", body, section="judges",
-              crumbs=[("Judges & reviews", "judges/"), ("Reviews", "reviews/"), (_nb(r.title), "")], scripts=SCRIPTS,
+              crumbs=[("Judges & reviews", "judges/"), ("Reviews", "reviews/"), (nb_dash(r.title), "")], scripts=SCRIPTS,
               description=f"Blind phase-1 {r.type_label} review ({bid}): overall {fmt_score(r.overall)} / 10, verbatim.")
     site.search_doc(url.removeprefix("@/"), f"{r.type_label} review — {c.label}", "review",
                     f"Phase-1 review · {bid} · overall {fmt_score(r.overall)}", md.to_text(r.md))

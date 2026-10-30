@@ -70,7 +70,7 @@ the mapping (or a mapped letter not ranked), a candidate in a ranking or review 
 
 Code layout: `build.py` (entry point) · `sitelib/data.py` (loading, parsing, validation, metrics) ·
 `sitelib/layout.py` (page shell, URLs, evidence links) · `sitelib/fragments.py` (shared URLs, colours,
-caveats) · `sitelib/md.py` (safe Markdown renderer) · `sitelib/qr.py` (QR encoder) · `sitelib/img.py`
+caveats, and text helpers the page modules share) · `sitelib/md.py` (safe Markdown renderer) · `sitelib/qr.py` (QR encoder) · `sitelib/img.py`
 (image sizes, PNG encoder, hero render) · `sitelib/searchindex.py` (search index) · `sitelib/pages/*.py`
 (one module per section, run in `ORDER`) · `assets/` (CSS concatenated into `site.css`, JS, favicon).
 

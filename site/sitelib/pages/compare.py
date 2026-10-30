@@ -14,9 +14,9 @@ import re
 from fractions import Fraction
 from itertools import combinations
 
-from .. import fragments, md
-from ..fragments import (cand_url, cat, cat_dash, compare_url, fmt_mean, fmt_score, judge_url, marker_svg, md_link,
-                         play_url, review_url, standing_html)
+from .. import fragments
+from ..fragments import (cand_url, cat, cat_dash, compare_url, find_line, fmt_mean, fmt_score, inline, judge_url,
+                         marker_svg, play_url, review_url, standing_html, title_badge)
 from ..layout import Site, esc, figure, prompt_badge
 
 ORDER = 400
@@ -37,34 +37,14 @@ def _signed(x: float, fmt: str = "{:.0f}") -> str:
     return ("+" if x > 0 else MINUS) + s
 
 
-def _find_line(text: str, needle: str) -> int | None:
-    """1-based number of the first line of text containing the first 50 chars of needle."""
-    needle = needle.strip()[:50]
-    if not needle:
-        return None
-    for i, line in enumerate(text.splitlines(), 1):
-        if needle in line:
-            return i
-    return None
-
-
 def _ev(site: Site, path: str, label: str, line: int | None = None) -> str:
     return site.evidence(path, label + (f" line {line}" if line else ""), anchor=f"#L{line}" if line else "", line=line)
-
-
-def _inline(site: Site, src: str, text: str) -> str:
-    return md.render_inline(text, link=md_link(site, src))
 
 
 def _tag(side: str, c, *, name: bool = False) -> str:
     """Side marker: a coloured bar plus the letter 'A'/'B' as text (never colour alone)."""
     nm = f' <span class="cmp-tag-name">{esc(c.label)}</span>' if name else ""
     return f'<span class="cmp-tag" style="--side:{cat(c.index)}"><span class="cmp-tag-l">{side}</span>{nm}</span>'
-
-
-def _title_badge(c) -> str:
-    """Prompt badge after a name in a title, unless the label already ends with the prompt ('Opus 5.5 · v1')."""
-    return "" if c.label.rstrip().endswith(c.prompt) else " " + prompt_badge(c.prompt)
 
 
 def _cols(a_html: str, b_html: str, a, b, cls: str = "") -> str:
@@ -213,7 +193,7 @@ def build_index(site: Site) -> None:
                         for b in cs if b.slug != a.slug)
         groups.append(f'<section class="cmp-group" aria-labelledby="g-{esc(a.slug)}">'
                       f'<h3 id="g-{esc(a.slug)}"><span class="cmp-dot" style="--side:{cat(a.index)}" aria-hidden="true"></span>'
-                      f'{esc(a.label)}{_title_badge(a)}</h3><ul>{links}</ul></section>')
+                      f'{esc(a.label)}{title_badge(a)}</h3><ul>{links}</ul></section>')
     n = len(cs)
     body = f"""<h1>Compare two candidates</h1>
 <p class="lede">Pick any two of the {n} candidates to see them side by side: the rank every judge gave them, their
@@ -259,7 +239,7 @@ def _card(site: Site, side: str, c) -> str:
     return f"""<article class="cmp-card">
 <p class="cmp-side-h">{_tag(side, c)}<span class="sr-only">Candidate {side}:</span></p>
 {thumb}
-<h3 class="cmp-name"><a href="{cand_url(c)}">{esc(c.label)}</a>{_title_badge(c)}</h3>
+<h3 class="cmp-name"><a href="{cand_url(c)}">{esc(c.label)}</a>{title_badge(c)}</h3>
 <p class="small muted cmp-sub">{esc(c.vendor)} · {esc(c.product)}</p>
 {rank}
 <p class="cmp-btns"><a class="btn btn-play-sec" href="{play_url(c)}"><span class="play-icon" aria-hidden="true"></span>Play<span class="sr-only"> {esc(c.label)}</span></a>
@@ -434,10 +414,10 @@ def _reasons(site: Site, side: str, c, r) -> str:
     if not r:
         return f'<p class="cmp-side-h">{_tag(side, c, name=True)}</p><p class="muted small">No review.</p>'
     src = r.files.get("REVIEW.md", r.dir)
-    first = _find_line(r.md, r.criteria[0].reason) if r.criteria else None
-    last = _find_line(r.md, r.criteria[-1].reason) if r.criteria else None
+    first = find_line(r.md, r.criteria[0].reason) if r.criteria else None
+    last = find_line(r.md, r.criteria[-1].reason) if r.criteria else None
     lis = "".join(f'<li><strong>{esc(cr.name)}</strong> <span class="num">{esc(fmt_score(cr.score))}</span> — '
-                  f'{_inline(site, src, cr.reason)}</li>' for cr in r.criteria)
+                  f'{inline(site, src, cr.reason)}</li>' for cr in r.criteria)
     lines = f"lines {first}–{last}" if first and last and last != first else (f"line {first}" if first else "")
     label = "REVIEW.md" + (f" {lines}" if lines else "")
     ev = site.evidence(src, label, anchor=f"#L{first}" if first else "", line=first)
@@ -503,10 +483,10 @@ def _just_side(site: Site, side: str, c, j) -> str:
     if not row:
         return head + '<p class="muted small">Not ranked by this judge.</p>'
     p = j.files["RANKING.md"]
-    line = _find_line(j.md, row.justification)
+    line = find_line(j.md, row.justification)
     return (head + f'<p class="small muted cmp-rk">Rank <strong>{row.rank}</strong> of {len(j.rows)} · '
             f'seen as letter <strong class="cmp-letter">{esc(row.letter)}</strong></p>'
-            f'<blockquote class="quote"><p>{_inline(site, p, row.justification)}</p>'
+            f'<blockquote class="quote"><p>{inline(site, p, row.justification)}</p>'
             f'<cite>{esc(j.label)} judge, justification for {esc(row.letter)}, verbatim — {_ev(site, p, "RANKING.md", line)}</cite>'
             f'</blockquote>')
 
@@ -526,7 +506,7 @@ def _justifications(site: Site, a, b) -> str:
 def _special_item(site: Site, j, s, a, b) -> str:
     m = site.model
     p = j.files["RANKING.md"]
-    line = _find_line(j.md, s.raw)
+    line = find_line(j.md, s.raw)
     who = []
     for L, sl in zip(s.letters, s.slugs):
         if sl == a.slug:
@@ -536,7 +516,7 @@ def _special_item(site: Site, j, s, a, b) -> str:
         else:
             o = m.cand(sl)
             who.append(f'<span class="cmp-letter">{esc(L)}</span> = <a href="{cand_url(o)}">{esc(o.label)}</a>')
-    return (f'<li><blockquote class="quote"><p>{_inline(site, p, s.raw)}</p>'
+    return (f'<li><blockquote class="quote"><p>{inline(site, p, s.raw)}</p>'
             f'<cite><a href="{judge_url(j)}">{esc(j.label)} judge</a> · {"; ".join(who)} — {_ev(site, p, "RANKING.md", line)}</cite>'
             f'</blockquote></li>')
 
