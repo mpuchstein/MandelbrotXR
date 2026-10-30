@@ -259,6 +259,7 @@ def add_synthetic(repo: str) -> None:
 slug = "{SYN_SLUG}"
 folder = "{SYN_FOLDER}"
 name = "Synthetic Model 9 · v1"
+label = "Synthetic 9 · v1"
 vendor = "TestBench"
 product = "Synthetic"
 model = "model-9"

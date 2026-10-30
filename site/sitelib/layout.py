@@ -205,7 +205,7 @@ class Site:
 <header class="site-header">
 <div class="bar">
 <a class="brand" href="@/"><span class="brand-mark" aria-hidden="true"></span>MandelbrotXR <span class="brand-sub">results</span></a>
-<button class="theme-toggle" type="button" id="theme-toggle" aria-label="Colour theme: follows system" hidden><span class="theme-icon" aria-hidden="true"></span><span class="theme-text">Auto</span></button>
+<button class="theme-toggle" type="button" id="theme-toggle" aria-pressed="false" hidden><span class="theme-icon" aria-hidden="true"></span>Dark theme</button>
 </div>
 <nav class="site-nav" aria-label="Main"><ul>{nav}</ul></nav>
 </header>

@@ -4,7 +4,8 @@ from __future__ import annotations
 from .data import Candidate, Judge, Model, Review, fmt_mean, fmt_score
 from .layout import Site, esc
 
-__all__ = ["cand_url", "play_url", "judge_url", "review_url", "compare_url", "cat", "heat", "score_heat",
+__all__ = ["cand_url", "play_url", "judge_url", "review_url", "compare_url", "cat", "cat_dash", "cat_marker",
+           "marker_svg", "heat", "score_heat", "heat_legend",
            "caveats_html", "standing_html", "fmt_mean", "fmt_score", "CAVEATS", "md_link", "render_md"]
 
 
@@ -33,12 +34,36 @@ def compare_url(a: Candidate, b: Candidate) -> str:
 # ---------------------------------------------------------------- colours
 
 def cat(i: int) -> str:
-    """Categorical colour for candidate index i (Okabe–Ito based, theme-aware CSS variable)."""
+    """Fixed series colour for candidate index i (candidates.toml order): Okabe–Ito via CSS var
+    --cat-0..7, identical in every chart. Past 8 candidates the colours repeat and cat_dash /
+    cat_marker tell the series apart deterministically. Always pair with a direct label."""
     return f"var(--cat-{i % 8})"
 
 
-# cividis-like sequential ramp (colour-blind safe, perceptually ordered), dark -> light
-_RAMP = [(0, 34, 78), (37, 60, 107), (87, 92, 109), (124, 123, 120), (164, 157, 114), (205, 193, 96), (253, 232, 69)]
+def cat_dash(i: int) -> str:
+    """SVG stroke-dasharray for candidate index i ('' for the first 8)."""
+    return ("", "6 4", "2 3", "8 3 2 3")[(i // 8) % 4]
+
+
+def cat_marker(i: int) -> str:
+    """Marker shape for candidate index i: 'circle', 'square', 'triangle' or 'diamond'."""
+    return ("circle", "square", "triangle", "diamond")[(i // 8) % 4]
+
+
+def marker_svg(i: int, x: float, y: float, r: float = 4.5, extra: str = "") -> str:
+    """An SVG marker of candidate i's shape at (x, y), filled with its series colour."""
+    shape, fill = cat_marker(i), cat(i)
+    if shape == "circle":
+        return f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" style="fill:{fill}"{extra}/>'
+    if shape == "square":
+        return f'<rect x="{x - r:.1f}" y="{y - r:.1f}" width="{2 * r:.1f}" height="{2 * r:.1f}" style="fill:{fill}"{extra}/>'
+    pts = ((x, y - r * 1.2), (x + r * 1.1, y + r * .8), (x - r * 1.1, y + r * .8)) if shape == "triangle" else \
+          ((x, y - r * 1.3), (x + r * 1.1, y), (x, y + r * 1.3), (x - r * 1.1, y))
+    return f'<polygon points="{" ".join(f"{px:.1f},{py:.1f}" for px, py in pts)}" style="fill:{fill}"{extra}/>'
+
+
+# single-hue sequential ramp (Mandelbrot deep blue), light -> dark; colour is never the only channel
+_RAMP = [(239, 243, 250), (198, 214, 238), (148, 178, 222), (95, 138, 199), (52, 99, 168), (25, 64, 128), (12, 36, 82)]
 
 
 def _lerp(t: float) -> tuple[int, int, int]:
@@ -49,20 +74,30 @@ def _lerp(t: float) -> tuple[int, int, int]:
 
 
 def _style(rgb: tuple[int, int, int]) -> str:
+    def lin(c: int) -> float:
+        c /= 255
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
     r, g, b = rgb
-    lum = 0.2126 * (r / 255) ** 2.2 + 0.7152 * (g / 255) ** 2.2 + 0.0722 * (b / 255) ** 2.2
-    fg = "#111" if lum > 0.22 else "#fff"
+    lum = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+    fg = "#111111" if (lum + 0.05) / 0.05 >= 1.05 / (lum + 0.05) else "#ffffff"
     return f"background:#{r:02x}{g:02x}{b:02x};color:{fg}"
 
 
 def heat(rank: float, n: int) -> str:
-    """Inline style for a rank cell: rank 1 = brightest, rank n = darkest."""
+    """Inline style for a rank cell (single-hue scale): rank 1 = darkest blue, rank n = lightest.
+    The rank number stays printed in the cell; pair with heat_legend()."""
     return _style(_lerp(1 - (rank - 1) / max(1, n - 1)))
 
 
 def score_heat(score: float, lo: float = 0, hi: float = 10) -> str:
-    """Inline style for a 1–10 score cell: higher = brighter."""
+    """Inline style for a 1–10 score cell (same single-hue scale): higher = darker."""
     return _style(_lerp((score - lo) / (hi - lo)))
+
+
+def heat_legend(n: int) -> str:
+    """Legend for heat(): swatches 1..n labelled, stating '1 = best'."""
+    sw = "".join(f'<span class="heat-swatch" style="{heat(r, n)}">{r}</span>' for r in range(1, n + 1))
+    return f'<span class="legend-scale" role="note"><span>Rank colour: 1 = best</span><span class="heat-swatches" aria-hidden="true">{sw}</span><span>{n} = worst</span></span>'
 
 
 # ---------------------------------------------------------------- text

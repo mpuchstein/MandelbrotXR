@@ -1,27 +1,22 @@
-// Colour theme: follows prefers-color-scheme unless the visitor picks light or dark.
-// Loaded synchronously in <head> (external file, CSP-safe) so the stored choice applies before first paint.
+// Colour theme. Follows prefers-color-scheme until the visitor presses the "Dark theme" toggle
+// (a <button aria-pressed>); the choice is then stored per browser. Loaded synchronously in <head>
+// (external file, CSP-safe) so a stored choice applies before first paint.
 (function () {
   "use strict";
   var KEY = "mxr-theme", root = document.documentElement;
-  function get() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
-  function set(v) { try { if (v) localStorage.setItem(KEY, v); else localStorage.removeItem(KEY); } catch (e) { /* storage blocked */ } }
-  function apply(v) { if (v === "light" || v === "dark") root.setAttribute("data-theme", v); else root.removeAttribute("data-theme"); }
-  apply(get());
+  var media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  function stored() { try { var v = localStorage.getItem(KEY); return v === "light" || v === "dark" ? v : null; } catch (e) { return null; } }
+  function store(v) { try { localStorage.setItem(KEY, v); } catch (e) { /* storage blocked: choice lasts for this page only */ } }
+  function apply(v) { if (v) root.setAttribute("data-theme", v); else root.removeAttribute("data-theme"); }
+  function isDark() { var v = root.getAttribute("data-theme"); return v ? v === "dark" : !!(media && media.matches); }
+  apply(stored());
   document.addEventListener("DOMContentLoaded", function () {
     var btn = document.getElementById("theme-toggle");
     if (!btn) return;
-    var order = [null, "light", "dark"], names = { null: "Auto", light: "Light", dark: "Dark" };
-    function label() {
-      var v = get();
-      v = v === "light" || v === "dark" ? v : null;
-      btn.querySelector(".theme-text").textContent = names[v];
-      btn.setAttribute("aria-label", "Colour theme: " + (v ? v : "follows system") + ". Activate to change.");
-    }
+    function sync() { btn.setAttribute("aria-pressed", isDark() ? "true" : "false"); }
     btn.hidden = false;
-    label();
-    btn.addEventListener("click", function () {
-      var cur = get(), next = order[(order.indexOf(cur === "light" || cur === "dark" ? cur : null) + 1) % order.length];
-      set(next); apply(next); label();
-    });
+    sync();
+    btn.addEventListener("click", function () { var v = isDark() ? "light" : "dark"; apply(v); store(v); sync(); });
+    if (media && media.addEventListener) media.addEventListener("change", sync);
   });
 })();

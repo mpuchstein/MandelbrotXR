@@ -36,7 +36,7 @@ def fail(path: str, msg: str) -> None:
 
 # ---------------------------------------------------------------- model
 
-CAND_FIELDS = ("slug", "folder", "name", "vendor", "product", "model", "effort", "provenance",
+CAND_FIELDS = ("slug", "folder", "name", "label", "vendor", "product", "model", "effort", "provenance",
                "prompt", "product_file", "source_url", "date")
 
 
@@ -58,6 +58,7 @@ class Candidate:
     slug: str
     folder: str
     name: str
+    label: str
     vendor: str
     product: str
     model: str
