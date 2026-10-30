@@ -10,10 +10,14 @@ From a clean clone, at the repository root (stdlib only, Python ≥ 3.12):
 python3 -I site/build.py --out site/dist
 ```
 
-The output directory (`site/dist/`, gitignored) is the complete site. Serve it as the web root of
-`https://mandelbrotxr.puchstein.dev/`. `--base-url` (default `https://mandelbrotxr.puchstein.dev/`) only
+The output directory (`site/dist/`, gitignored) is the complete site. Publish a copy of it as the web
+root of `https://mandelbrotxr.puchstein.dev/`. `--base-url` (default `https://mandelbrotxr.puchstein.dev/`) only
 changes the QR codes, the Atom feed and the canonical links; everything else is relative, so the same
 build also works under any path prefix.
+
+The build empties `--out` before it writes, so a running build blanks that directory and a failed one
+leaves it partial. Build into a scratch directory and publish the finished tree; never point `--out` at
+the directory the web server serves or at a git checkout of the published site.
 
 The build needs the git history (changelog and feed). A shallow clone is unshallowed automatically
 (`git fetch --unshallow`), so the build host needs network access to the remote in that case.
@@ -33,7 +37,8 @@ CDN from `cdn.tailwindcss.com` and fonts from Google Fonts at runtime.
 
 ```caddyfile
 mandelbrotxr.puchstein.dev {
-	root * /srv/mandelbrotxr/site/dist
+	# a published copy of the build output, never a build's --out directory
+	root * /srv/mandelbrotxr/www
 	encode zstd gzip
 
 	# never serve repository internals if the site is deployed from a checkout
