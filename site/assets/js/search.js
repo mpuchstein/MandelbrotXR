@@ -1,0 +1,326 @@
+// Client-side full-text search over the index written by site/sitelib/searchindex.py.
+// Normalisation must match searchindex.tokenize(): NFKD, drop combining marks (\p{M}),
+// casefold (toLowerCase, then fold() for the letters where casefold differs: ß, ς, Cyrillic
+// U+1C80-1C88 and Cherokee small letters), split on non-[\p{L}\p{N}], keep tokens of >= 2 code
+// points or pure ASCII digits, drop meta.json "stop" words.
+// Query: words are AND-ed, the last word is prefix-matched while typing, "quoted phrases" are
+// verified against the passage text. Only the shards a query needs are fetched.
+(() => {
+  "use strict";
+  const form = document.getElementById("search-form");
+  if (!form) return;
+  const $ = (id) => document.getElementById(id);
+  const input = $("q"), kindsBox = $("search-kinds"), status = $("search-status"), list = $("search-results");
+  const indexBase = form.dataset.index || "search-index/";
+  const root = form.dataset.root || "";
+  const PAGE = 50, K1 = 1.2, B = 0.75, MAX_EXPANSIONS = 64, VERIFY_SHARDS = 4;
+  const cache = new Map(), postingsCache = new Map(), titleCache = new Map();
+  let meta, docs, lens, avgdl, stop = new Set(), gen = 0, state = null, timer = 0;
+
+  const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  const fetchJSON = (file) => {
+    if (!cache.has(file)) {
+      const p = fetch(new URL(indexBase + file, location.href)).then((r) => {
+        if (!r.ok) throw new Error(`${file}: HTTP ${r.status}`);
+        return r.json();
+      });
+      p.catch(() => cache.delete(file));
+      cache.set(file, p);
+    }
+    return cache.get(file);
+  };
+
+  const FOLD = { "ß": "ss", "ς": "σ", "ᲀ": "в", "ᲁ": "д", "ᲂ": "о", "ᲃ": "с", "ᲄ": "т", "ᲅ": "т", "ᲆ": "ъ", "ᲇ": "ѣ", "ᲈ": "ꙋ" };
+  const fold = (c) => FOLD[c] || String.fromCharCode(c.charCodeAt(0) - (c < "\uAB70" ? 8 : 0x97d0));
+  const norm = (s) => s.normalize("NFKD").replace(/\p{M}+/gu, "").toLowerCase().replace(/[ßςᲀ-ᲈ\u13f8-\u13fd\uab70-\uabbf]/g, fold);
+  const words = (s) => norm(s).match(/[\p{L}\p{N}]+/gu) || [];
+  const keep = (t) => ([...t].length >= 2 || /^[0-9]+$/.test(t)) && !stop.has(t);
+  const tokenize = (s) => words(s).filter(keep);
+
+  let ready = null;
+  const loadBase = () => (ready ||= Promise.all([fetchJSON("meta.json"), fetchJSON("p.json")]).then(([m, p]) => {
+    meta = m; docs = p.docs; lens = p.len;
+    stop = new Set(m.stop);
+    avgdl = lens.reduce((a, b) => a + b, 0) / Math.max(1, lens.length) || 1;
+  }).catch((err) => { ready = null; throw err; }));
+
+  function parse(q) {
+    const groups = new Map(), phrases = [];
+    const chunks = [...q.matchAll(/"([^"]*)"?|[^\s"]+/g)];
+    chunks.forEach((m, i) => {
+      const quoted = m[1] !== undefined, raw = quoted ? m[1] : m[0], w = words(raw);
+      if (quoted && w.length > 1) phrases.push(w);
+      for (const t of w.filter(keep)) if (!groups.has(t)) groups.set(t, { term: t, prefix: false });
+      const last = w[w.length - 1];
+      if (i === chunks.length - 1 && !quoted && !/\s$/.test(q) && last && [...last].length >= 2) {
+        groups.delete(last);
+        groups.set(last, { term: last, prefix: true });
+      }
+    });
+    return { groups: [...groups.values()], phrases };
+  }
+
+  function keyFor(t) {
+    for (let k = t; k; k = k.slice(0, -1)) if (has(meta.shards, k)) return k;
+    return null;
+  }
+
+  function decode(term, s) {
+    if (!postingsCache.has(term)) {
+      const out = [];
+      let id = 0;
+      for (const part of s.split(",")) {
+        const [d, tf] = part.split(":");
+        id += parseInt(d, 36);
+        out.push(id, tf ? parseInt(tf, 36) : 1);
+      }
+      postingsCache.set(term, out);
+    }
+    return postingsCache.get(term);
+  }
+
+  async function resolve(g) {
+    const files = new Set(), k = keyFor(g.term);
+    if (k) files.add(meta.shards[k]);
+    if (g.prefix) for (const key of Object.keys(meta.shards)) {
+      if (key.length > g.term.length && key.startsWith(g.term)) files.add(meta.shards[key]);
+    }
+    const shards = await Promise.all([...files].map(fetchJSON));
+    let terms = [];
+    for (const sh of shards) {
+      if (!g.prefix) { if (has(sh, g.term)) terms.push([g.term, sh[g.term]]); continue; }
+      for (const t of Object.keys(sh)) if (t.startsWith(g.term)) terms.push([t, sh[t]]);
+    }
+    terms.sort((a, b) => (b[0] === g.term) - (a[0] === g.term) || b[1].length - a[1].length || (a[0] < b[0] ? -1 : 1));
+    terms = terms.slice(0, MAX_EXPANSIONS);
+    const tf = new Map();
+    for (const [t, s] of terms) {
+      const p = decode(t, s);
+      for (let i = 0; i < p.length; i += 2) tf.set(p[i], (tf.get(p[i]) || 0) + p[i + 1]);
+    }
+    return { terms: terms.map((x) => x[0]), tf, idf: Math.log(1 + (meta.n - tf.size + 0.5) / (tf.size + 0.5)) };
+  }
+
+  function docOf(id) {
+    let lo = 0, hi = docs.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (docs[mid][4] <= id) lo = mid; else hi = mid - 1;
+    }
+    return lo;
+  }
+
+  function titleTerms(d) {
+    if (!titleCache.has(d)) titleCache.set(d, new Set(tokenize(docs[d][1])));
+    return titleCache.get(d);
+  }
+
+  const passage = async (id) => (await fetchJSON(`d-${Math.floor(id / meta.docshard_size)}.json`))[id % meta.docshard_size];
+  const shardOf = (id) => Math.floor(id / meta.docshard_size);
+
+  function hasPhrase(text, phrases) {
+    const w = words(text);
+    return phrases.every((p) => {
+      outer: for (let i = 0; i + p.length <= w.length; i++) {
+        for (let j = 0; j < p.length; j++) if (w[i + j] !== p[j]) continue outer;
+        return true;
+      }
+      return false;
+    });
+  }
+
+  function checkedKinds() {
+    return [...kindsBox.querySelectorAll('input[name="kind"]:checked')].map((el) => el.value);
+  }
+
+  function syncURL(q, kinds) {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    for (const k of kinds) p.append("kind", k);
+    const s = p.toString();
+    history.replaceState(history.state, "", (s ? `?${s}` : location.pathname) + location.hash);
+  }
+
+  async function search() {
+    const my = ++gen, q = input.value, kinds = checkedKinds();
+    syncURL(q.trim(), kinds);
+    const { groups, phrases } = parse(q);
+    if (observer) observer.disconnect();
+    list.replaceChildren();
+    more.hidden = true;
+    state = null;
+    if (!groups.length) {
+      status.textContent = q.trim() ? "Those words are too common to search for; try more specific terms." : "";
+      return;
+    }
+    status.textContent = "Searching…";
+    try {
+      await loadBase();
+      const res = await Promise.all(groups.map(resolve));
+      if (my !== gen) return;
+      const allow = kinds.length ? new Set(kinds) : null;
+      res.sort((a, b) => a.tf.size - b.tf.size);
+      const ranked = [];
+      for (const [id] of res[0].tf) {
+        if (!res.every((r) => r.tf.has(id))) continue;
+        const d = docOf(id);
+        if (allow && !allow.has(docs[d][2])) continue;
+        const lenNorm = K1 * (1 - B + (B * lens[id]) / avgdl);
+        let score = 0;
+        for (const r of res) {
+          const tf = r.tf.get(id);
+          score += (r.idf * tf * (K1 + 1)) / (tf + lenNorm);
+          if (r.terms.some((t) => titleTerms(d).has(t))) score += r.idf * 0.75;
+        }
+        ranked.push({ id, d, score });
+      }
+      ranked.sort((a, b) => b.score - a.score || a.id - b.id);
+      const marks = new Set(res.flatMap((r) => r.terms));
+      state = { my, phrases, marks, pending: phrases.length ? ranked : [], accepted: phrases.length ? [] : ranked, shown: 0 };
+      await showMore();
+    } catch (err) {
+      if (my !== gen) return;
+      console.warn("search: index could not be loaded", err);
+      status.textContent = "Search is unavailable right now: the search index could not be loaded.";
+    }
+  }
+
+  async function verifyMore(s) {
+    for (let loaded = 0; s.pending.length && s.accepted.length < s.shown + PAGE && loaded < VERIFY_SHARDS; loaded++) {
+      const shard = shardOf(s.pending[0].id), rows = await fetchJSON(`d-${shard}.json`);
+      if (s.my !== gen) return;
+      const batch = s.pending.filter((r) => shardOf(r.id) === shard);
+      s.pending = s.pending.filter((r) => shardOf(r.id) !== shard);
+      for (const r of batch) if (hasPhrase(rows[r.id % meta.docshard_size][4], s.phrases)) s.accepted.push(r);
+      const tail = s.accepted.splice(s.shown).sort((a, b) => b.score - a.score || a.id - b.id);
+      s.accepted.push(...tail);
+    }
+  }
+
+  async function showMore() {
+    const s = state;
+    if (!s) return;
+    if (s.pending.length) {
+      status.textContent = "Checking phrase matches…";
+      try {
+        await verifyMore(s);
+      } catch (err) {
+        if (s.my !== gen) return;
+        console.warn("search: passages could not be loaded", err);
+        status.textContent = "Some passages could not be loaded; press the button to try again.";
+        more.textContent = "Check more passages";
+        more.hidden = false;
+        return;
+      }
+      if (s.my !== gen) return;
+    }
+    const page = s.accepted.slice(s.shown, s.shown + PAGE);
+    list.append(...page.map((r) => result(r, s)));
+    s.shown += page.length;
+    const total = s.accepted.length;
+    if (!total && !s.pending.length) status.textContent = `No results for “${input.value.trim()}”.`;
+    else if (!s.shown) status.textContent = "No phrase matches in the passages checked so far; more remain to be checked.";
+    else if (s.pending.length) status.textContent = `Showing ${s.shown} phrase match${s.shown === 1 ? "" : "es"} so far; more passages remain to be checked.`;
+    else status.textContent = `Showing ${s.shown} of ${total} result${total === 1 ? "" : "s"}.`;
+    more.textContent = s.shown < total ? "Show more results" : "Check more passages";
+    more.hidden = !(s.pending.length || s.shown < total);
+  }
+
+  const el = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  };
+
+  function result(r, s) {
+    const [url, title, kind, context] = docs[r.d];
+    const li = el("li", "search-result"), head = el("p", "search-result-head"), a = el("a", "search-result-title", title);
+    a.href = root + url.replace(/^\/+/, "");
+    head.append(a, " ", el("span", "search-badge", kind));
+    const snip = el("p", "search-snippet", "…");
+    snip.dataset.id = String(r.id);
+    li.append(head, el("p", "search-context", context), snip);
+    if (observer) observer.observe(snip); else fill(snip, s);
+    return li;
+  }
+
+  async function fill(snip, s = state) {
+    if (!s || snip.dataset.done) return;
+    snip.dataset.done = "1";
+    try {
+      const text = (await passage(Number(snip.dataset.id)))[4];
+      snip.replaceChildren(snippet(text, s.marks));
+    } catch (err) {
+      console.warn("search: snippet unavailable", err);
+      snip.textContent = "(excerpt unavailable)";
+    }
+  }
+
+  function snippet(text, marks) {
+    const hits = [];
+    for (const m of text.matchAll(/[\p{L}\p{N}\p{M}]+/gu)) {
+      if (words(m[0]).some((t) => marks.has(t))) hits.push([m.index, m.index + m[0].length]);
+    }
+    let from = 0, to = text.length;
+    if (hits.length && hits[0][0] > 60) {
+      const sp = text.slice(hits[0][0] - 60, hits[0][0]).search(/\s/);
+      from = hits[0][0] - 60 + (sp < 0 ? 0 : sp + 1);
+    }
+    if (to > from + 200) {
+      const sp = text.slice(from + 120, from + 200).search(/\s\S*$/);
+      to = sp < 0 ? from + 200 : from + 120 + sp;
+    }
+    const frag = document.createDocumentFragment();
+    let pos = from;
+    if (from > 0) frag.append("… ");
+    for (const [a, b] of hits) {
+      if (a < pos || a >= to) continue;
+      frag.append(text.slice(pos, a), el("mark", "", text.slice(a, b)));
+      pos = b;
+    }
+    frag.append(text.slice(pos, Math.max(pos, to)));
+    if (to < text.length) frag.append(" …");
+    return frag;
+  }
+
+  const observer = "IntersectionObserver" in window ? new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { observer.unobserve(e.target); fill(e.target); }
+  }, { rootMargin: "100px 0px" }) : null;
+
+  const more = el("button", "search-more", "Show more results");
+  more.type = "button";
+  more.hidden = true;
+  more.addEventListener("click", () => { more.disabled = true; showMore().finally(() => { more.disabled = false; }); });
+  list.after(more);
+
+  form.addEventListener("submit", (e) => { e.preventDefault(); clearTimeout(timer); search(); });
+  input.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(search, 150); });
+  kindsBox.addEventListener("change", () => { clearTimeout(timer); search(); });
+  document.addEventListener("keydown", (e) => {
+    const t = e.target;
+    if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey || t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    e.preventDefault();
+    input.focus();
+    input.select();
+  });
+
+  const params = new URLSearchParams(location.search);
+  input.value = params.get("q") || "";
+  loadBase().then(() => {
+    const wanted = new Set(params.getAll("kind"));
+    kindsBox.replaceChildren(...meta.kinds.map((k) => {
+      const label = el("label", "search-kind"), box = el("input");
+      box.type = "checkbox";
+      box.name = "kind";
+      box.value = k;
+      box.checked = wanted.has(k);
+      label.append(box, " ", k);
+      return label;
+    }));
+    if (input.value.trim()) search();
+  }).catch((err) => {
+    console.warn("search: index could not be loaded", err);
+    status.textContent = "Search is unavailable right now: the search index could not be loaded.";
+  });
+})();
