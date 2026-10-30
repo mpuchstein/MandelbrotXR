@@ -63,8 +63,10 @@ def axe_source(cache: str) -> str:
 @contextlib.contextmanager
 def serve(root: str):
     """python3 -m http.server equivalent on a free port, in a thread."""
-    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=root)
-    handler.log_message = lambda *a: None
+    class Quiet(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+    handler = functools.partial(Quiet, directory=root)
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     t = threading.Thread(target=srv.serve_forever, daemon=True)
     t.start()
@@ -180,7 +182,9 @@ def check_rankings(page, base: str) -> str:
             filled = [v for v in vals if not (v[0] == 1 and v[2] == "")]
             exp = sorted(filled, reverse=(sort == "descending"))
             check(filled == exp, f"rankings: column {col} not sorted {sort}: {[v[1] if v[2] == '' else v[2] for v in filled]}")
-            check(f"sort={col}-" in urllib.parse.unquote(page.evaluate("location.hash")), f"rankings: hash lacks sort state for {col}")
+            h = urllib.parse.unquote(page.evaluate("location.hash"))
+            check(f"sort={col}-" in h or (h in ("", "#") and col == cols[0] and sort == "ascending"),
+                  f"rankings: hash lacks sort state for {col} {sort} ({h!r}); only the default order may omit it")
         check(seen == {"ascending", "descending"}, f"rankings: column {col} did not toggle both directions")
     # hash state restores on load
     page.goto(base + f"rankings/#sort={cols[-1]}-desc")
@@ -291,6 +295,48 @@ def check_keyboard(page, base: str, a: str, b: str, judge_url: str) -> str:
     return ", ".join(done)
 
 
+# ---------------------------------------------------------------- screenshots
+
+def screenshot_targets(model) -> list[tuple[str, str]]:
+    """(name, root-relative URL) — one representative page per page type."""
+    order = model.ordered()
+    c0, c1 = order[0], order[-1]
+    j = model.judges[0]
+    r = model.reviews[0]
+    from sitelib.layout import transcript_id
+    return [
+        ("home", ""), ("rankings", "rankings/"), ("candidates", "candidates/"), ("candidate", f"candidates/{c0.slug}/"),
+        ("compare", "compare/"), ("compare-pair", f"compare/{c0.slug}-vs-{c1.slug}/"), ("techniques", "techniques/"),
+        ("judges", "judges/"), ("judge", f"judges/{j.id.replace('_', '-')}/"), ("reviews", "reviews/"),
+        ("review", f"reviews/{r.type_id.replace('_', '-')}/{r.slug}/"), ("transcripts", "transcripts/"),
+        ("transcript", f"transcripts/{transcript_id(c0.transcription)}/"), ("source", "source/Judge/README.md.html"),
+        ("methodology", "methodology/"), ("data", "data/"), ("changelog", "data/changelog/"),
+        ("search", "search/?q=perturbation"),
+    ]
+
+
+def take_screenshots(browser, base: str, model, dest: str, max_height: int) -> int:
+    """PNG per page type at 390×844 and 1440×900 in light and dark, capped at max_height px."""
+    os.makedirs(dest, exist_ok=True)
+    n = 0
+    for theme in ("light", "dark"):
+        for w, h in ((390, 844), (1440, 900)):
+            ctx = browser.new_context(viewport={"width": w, "height": h}, color_scheme=theme, reduced_motion="reduce")
+            page = ctx.new_page()
+            for name, url in screenshot_targets(model):
+                page.goto(base + url, wait_until="load")
+                if name == "search":
+                    page.wait_for_function("document.querySelectorAll('#search-results li').length > 0", timeout=15000)
+                page.evaluate("() => Promise.all(Array.from(document.images).map(i => (i.loading = 'eager', i.decode().catch(() => null))))")
+                height = min(max_height, page.evaluate("document.documentElement.scrollHeight"))
+                page.set_viewport_size({"width": w, "height": height})
+                page.screenshot(path=os.path.join(dest, f"{name}-{w}-{theme}.png"))
+                page.set_viewport_size({"width": w, "height": h})
+                n += 1
+            ctx.close()
+    return n
+
+
 # ---------------------------------------------------------------- main
 
 def main(argv=None) -> int:
@@ -299,11 +345,13 @@ def main(argv=None) -> int:
     ap.add_argument("--no-build", action="store_true", help="check an existing build")
     ap.add_argument("--axe-dir", default=os.path.join(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")), "mandelbrotxr-axe"))
     ap.add_argument("--axe-all", action="store_true", help="run axe on every page, not one per page type")
+    ap.add_argument("--screenshots", metavar="DIR", help="only write page-type screenshots (390/1440, light/dark) to DIR")
+    ap.add_argument("--max-height", type=int, default=2400, help="screenshot height cap in px (default 2400)")
     a = ap.parse_args(argv)
     out = os.path.abspath(a.out)
     if not a.no_build:
         subprocess.run([sys.executable, "-I", os.path.join(HERE, "build.py"), "--out", out], check=True)
-    axe = axe_source(a.axe_dir)
+    axe = None if a.screenshots else axe_source(a.axe_dir)
     site_pages, play_pages = pages(out)
     sys.path.insert(0, HERE)
     from sitelib import data
@@ -314,6 +362,13 @@ def main(argv=None) -> int:
     review_url = f"reviews/{model.reviews[0].type_id.replace('_', '-')}/{model.reviews[0].slug}/"
 
     problems, results = [], {}
+    if a.screenshots:
+        with serve(out) as base, sync_playwright() as p:
+            browser = p.chromium.launch(args=CHROMIUM_ARGS)
+            n = take_screenshots(browser, base, model, os.path.abspath(a.screenshots), a.max_height)
+            browser.close()
+        print(f"wrote {n} screenshots to {a.screenshots}")
+        return 0
     with serve(out) as base, sync_playwright() as p:
         browser = p.chromium.launch(args=CHROMIUM_ARGS)
         host = urllib.parse.urlsplit(base).netloc

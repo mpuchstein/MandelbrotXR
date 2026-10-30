@@ -354,8 +354,8 @@ def _xml_escape(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def svg(data: str, *, ecc: str = "M", border: int = 4, title: str | None = None) -> str:
-    """Return a standalone inline <svg> of the QR code, sized by CSS via its viewBox."""
+def svg(data: str, *, ecc: str = "M", border: int = 4, title: str | None = None, desc: str | None = None) -> str:
+    """Return a standalone inline <svg> of the QR code (role="img", <title>, <desc>), sized by CSS via its viewBox."""
     if border < 0:
         raise ValueError("border must be non-negative")
     grid = matrix(data, ecc)
@@ -378,6 +378,7 @@ def svg(data: str, *, ecc: str = "M", border: int = 4, title: str | None = None)
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {dim} {dim}" '
         f'shape-rendering="crispEdges" role="img">'
         f"<title>{label}</title>"
+        f"<desc>{_xml_escape(desc if desc is not None else 'QR code (error correction ' + ecc.upper() + ') encoding: ' + data)}</desc>"
         f'<rect width="{dim}" height="{dim}" fill="#fff"/>'
         f'<path fill="#000" d="{"".join(parts)}"/>'
         f"</svg>"
