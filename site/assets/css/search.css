@@ -1,0 +1,67 @@
+/* Search page: kind filters, status line and the results list built by assets/js/search.js.
+   Tokens from base.css only. */
+
+/* one column width for the whole page: form, help, suggestions, status and results */
+#search-form, #search-help, .search-examples, #search-status, #search-results { max-width: 46rem; }
+#search-form { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin-block: var(--space-3); }
+#search-form input[type="search"] {
+  flex: 1 1 256px; min-width: 0; min-height: 44px; font: inherit; padding: var(--space-2) var(--space-3);
+  color: var(--fg); background: var(--surface);
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+}
+#search-kinds { display: flex; flex-wrap: wrap; gap: var(--space-2); flex-basis: 100%; }
+#search-kinds:empty { display: none; }
+/* kind filters: toggle chips in the same pill shape as the result badges; a checked chip fills and shows a tick
+   (never colour alone). The native checkbox stays in the label for keyboard and screen readers. */
+.search-kind {
+  position: relative; display: inline-flex; align-items: center; gap: var(--space-1); min-height: 36px;
+  padding: 0 var(--space-3); border: 1px solid var(--border-strong); border-radius: 999px;
+  background: var(--surface); color: var(--fg); cursor: pointer; text-transform: capitalize; font-size: var(--text-sm);
+}
+.search-kind::before { content: "+"; color: var(--muted); font-weight: 600; width: 1ch; text-align: center; }
+.search-kind:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.search-kind:has(input:checked)::before { content: "✓"; color: var(--fg); }
+.search-kind:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
+.search-kind input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+
+#search-status { color: var(--muted); min-height: 1.55em; margin-block: var(--space-2); font-variant-numeric: tabular-nums; }
+
+#search-results { list-style: none; margin: 0; padding: 0; }
+.search-result { padding-block: var(--space-3); border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.search-result:first-child { border-top: 1px solid var(--border); }
+.search-result p { margin: 0; }
+.search-result-head { margin: 0; }
+/* titles in the text colour with an accent underline: the accent marks, it is not the running text colour */
+.search-result-title { font-weight: 600; color: var(--fg); text-decoration-color: var(--accent); }
+.search-result-title:hover { color: var(--accent); }
+.search-badge {
+  font-size: var(--text-xs); line-height: 1.6; display: inline-block; font-weight: 600; padding: 0 var(--space-2); border-radius: 999px;
+  border: 1px solid var(--border-strong); color: var(--muted); text-transform: capitalize; white-space: nowrap;
+}
+.search-result .search-context { font-size: var(--text-sm); color: var(--muted); margin-top: var(--space-1); }
+.search-time { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.search-ci + .search-ci::before { content: "·\00a0"; }
+.search-result .search-snippet { margin-top: var(--space-2); max-width: var(--measure); }
+.search-result .search-snippet.is-loading { color: var(--muted); font-size: var(--text-sm); }
+/* light theme: an accent tint (no second accent colour); dark theme keeps the gold mark token */
+.search-snippet mark { background: var(--sr-mark-bg, var(--mark-bg)); color: var(--fg); font-weight: 600; border-radius: 2px; padding: 0 1px; }
+:root { --sr-mark-bg: #d3e0f3; }
+/* dark theme: a neutral warm-grey highlight with bold text, not a second gold treatment */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sr-mark-bg: #45413a; } }
+:root[data-theme="dark"] { --sr-mark-bg: #45413a; }
+.search-examples a { white-space: nowrap; }
+.search-examples .sep { color: var(--muted); }
+.search-also { font-size: var(--text-sm); color: var(--muted); margin-top: var(--space-1); }
+.search-result .search-context .search-badge { margin-right: var(--space-2); }
+
+.search-more {
+  display: block; margin: var(--space-4) auto var(--space-5); min-height: 44px; font: inherit;
+  padding: var(--space-2) var(--space-4); color: var(--fg); background: var(--surface);
+  border: 1px solid var(--border-strong); border-radius: var(--radius); cursor: pointer;
+}
+.search-more:hover { border-color: var(--accent); }
+.search-more[hidden] { display: none; }
+.search-more:disabled { opacity: .6; cursor: progress; }
+
+/* the no-JS note: theme.js sets html.js in <head>, so it never paints when search.js can run */
+html.js #search-nojs { display: none; }

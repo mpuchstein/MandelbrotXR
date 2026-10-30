@@ -1,0 +1,123 @@
+/* Home page (index.html). Every selector is scoped with .home-*. */
+
+/* ---- hero: neutral surface, the build-time Mandelbrot render as a framed picture ---- */
+.home-hero {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4);
+  margin: var(--space-2) 0 var(--space-5); padding: var(--space-3);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+}
+.home-hero-img {
+  order: -1; display: block; width: 100%; max-width: none; height: 120px;
+  object-fit: cover; object-position: 58% 50%; border-radius: var(--radius); background: var(--surface-2);
+}
+.home-hero-text { min-width: 0; padding: 0 var(--space-1) var(--space-1); }
+.home-kicker {
+  margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted);
+}
+.home-hero h1 { margin: 0 0 var(--space-2); font-size: var(--text-3xl); letter-spacing: -.015em; }
+.home-sub { margin: 0 0 var(--space-4); font-size: var(--text-base); color: var(--fg); max-width: 34rem; }
+.home-stats {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-4);
+  margin: 0; padding-top: var(--space-3); border-top: 1px solid var(--border); max-width: 34rem;
+}
+.home-stats div { display: flex; flex-direction: column-reverse; }
+.home-stats dt { font-size: var(--text-sm); color: var(--muted); }
+.home-stats dd { margin: 0; font-size: var(--text-2xl); font-weight: 650; line-height: var(--leading-tight); color: var(--fg); font-variant-numeric: tabular-nums; }
+
+@media (min-width: 48rem) {
+  .home-hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); align-items: stretch; padding: var(--space-4); gap: var(--space-5); }
+  .home-hero-text { order: 0; padding: var(--space-2) 0; align-self: center; }
+  .home-hero-img { order: 1; height: 100%; min-height: 240px; object-position: 35% 50%; }
+  .home-sub { font-size: var(--text-lg); }
+}
+@media (min-width: 64rem) {
+  .home-stats { grid-template-columns: repeat(4, auto); justify-content: start; gap: var(--space-5); }
+}
+
+.home-lede { margin-bottom: var(--space-5); }
+
+/* ---- headline: verbatim quote + derived check ---- */
+.home-headline { margin-bottom: var(--space-5); }
+.home-headline h2 { margin-top: 0; }
+/* one column on small screens (quote, check, caveats); from 64rem the quote and the caveats stack on
+   the left beside the derived check (which keeps its own height); both callouts share one padding,
+   border and bullet indent */
+.home-headline-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.home-headline-grid > .caveat { max-width: none; margin: 0; }
+@media (min-width: 64rem) {
+  .home-headline-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-rows: auto 1fr;
+    grid-template-areas: "quote check" "caveat check"; }
+  .home-headline-grid > .home-quote { grid-area: quote; }
+  .home-headline-grid > .home-check { grid-area: check; align-self: start; }  /* hugs its content */
+  .home-headline-grid > .caveat { grid-area: caveat; align-self: stretch; }
+}
+.home-quote { margin: 0; padding: var(--space-3) var(--space-4); border-left: 4px solid var(--accent); }
+.home-headline-grid > .caveat { padding: var(--space-3) var(--space-4); }
+.home-headline-grid > .caveat ul { padding-left: var(--space-4); }
+.home-quote blockquote { margin: 0; padding: 0; border: 0; background: none; }
+.home-quote .md { max-width: none; }
+.home-quote .md > p:first-child { font-weight: 600; }
+.home-quote .md ul { padding-left: var(--space-4); }
+.home-quote .md li { margin-bottom: var(--space-2); }
+.home-quote .md li ul { margin-top: var(--space-2); margin-bottom: 0; }
+.home-quote figcaption { margin-top: var(--space-3); }
+
+.home-check { padding: var(--space-3) var(--space-4); }
+.home-check > h3 { margin: 0 0 var(--space-1); display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline; }
+.home-check-row { border-top: 1px solid var(--border); padding-top: var(--space-3); margin-top: var(--space-3); }
+.home-check-row h4 { margin: 0 0 var(--space-1); font-size: var(--text-sm); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.home-check-row p { margin: 0 0 var(--space-1); }
+.home-check-agree { font-size: var(--text-sm); color: var(--muted); }
+.home-frac { display: inline-block; min-width: 2.6em; font-weight: 700; color: var(--fg); font-variant-numeric: tabular-nums; }
+.home-check .table-wrap { margin: var(--space-2) 0; }
+.home-dev th, .home-dev td { padding: var(--space-1) var(--space-2); }
+.home-dev .num { white-space: nowrap; }
+.home-dev tbody th { font-weight: 500; }
+.home-delta { font-weight: 700; }
+/* data links (derived check, compact ranking) read as text with a neutral underline; accent on hover/focus only */
+.home-check a, .home-rank-table a { color: var(--fg); text-decoration-color: var(--border-strong); }
+.home-check a:hover, .home-check a:focus-visible, .home-rank-table a:hover, .home-rank-table a:focus-visible { color: var(--accent); text-decoration-color: currentColor; }
+
+
+/* ---- candidate cards: the candidates/ card component (.cand-card, styled in candidates.css) ---- */
+.home-cands h2, .home-ranking h2, .home-quick h2 { margin-top: var(--space-5); }
+.home-grid { list-style: none; padding: 0; margin: 0 0 var(--space-4); }
+.home-grid > li { max-width: none; display: flex; }
+.home-grid > li > .cand-card { width: 100%; }
+
+/* ---- compact ranking ---- */
+.home-rank-table thead th { white-space: normal; vertical-align: bottom; line-height: 1.25; }
+.home-rank-table thead th.num { min-width: 4.5em; }
+.home-rank-table tbody th { font-weight: 600; white-space: nowrap; }
+.home-rank-table td, .home-rank-table th { vertical-align: middle; }
+.home-rank-table .home-pl { white-space: nowrap; }
+.home-rank-table .home-pl .tie { font-size: var(--text-xs); color: var(--muted); }
+.home-meancell { font-weight: 700; }
+.home-stripcell { padding-block: var(--space-1); }
+.home-strip { display: block; width: 132px; height: 24px; max-width: none; }
+.home-strip-axis { stroke: var(--border-strong); stroke-width: 1; }
+.home-strip-mean { stroke: var(--fg); stroke-width: 2; }
+.home-strip-dots > * { stroke: var(--surface); stroke-width: 1; }
+
+/* ---- quick links ---- */
+.home-ql-grid { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
+.home-ql-grid > li { max-width: none; display: flex; }
+.home-ql { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; text-decoration: none; color: var(--fg); }
+a.home-ql:hover { border-color: var(--accent); }
+.home-ql-t { font-weight: 650; color: var(--accent); }
+a.home-ql:hover .home-ql-t { text-decoration: underline; }
+.home-ql-d { font-size: var(--text-sm); color: var(--muted); }
+.home-search { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; margin: 0; }
+.home-search-row { display: flex; gap: var(--space-2); margin-top: var(--space-2); }
+.home-search input {
+  flex: 1; min-width: 0; min-height: 44px; font: inherit; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--border-strong); border-radius: var(--radius); padding: var(--space-2) var(--space-3);
+}
+.home-search input::placeholder { color: var(--muted); opacity: 1; }
+.home-ranking .table-wrap, .home-check .table-wrap { position: relative; } /* keeps .sr-only cells from widening the page */
+@media (max-width: 30rem) {
+  .home-check { padding-inline: var(--space-3); }
+  .home-dev { font-size: var(--text-xs); }
+  .home-dev th, .home-dev td { padding: var(--space-1); }
+}

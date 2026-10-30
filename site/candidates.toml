@@ -1,0 +1,148 @@
+# MandelbrotXR candidates — the only hand-edited data file of the site build.
+#
+# One [[candidate]] table per top-level product folder. Fields:
+#   slug          URL slug: candidates/<slug>/, play/<slug>/ (lowercase, a-z0-9 and '-')
+#   folder        top-level repo folder <Vendor>-<Product>-<Model>-<Effort>-v<N>
+#   name          longer descriptive name (kept in data/results.json and the search index)
+#   label         display name used everywhere on the site, in tables and charts (folder names appear only on detail pages)
+#   vendor        company
+#   product       product / surface the chat ran in
+#   model         model as recorded (TRANSCRIPTION.md header, ReviewOrchestrator/README.md §1)
+#   effort        reasoning effort / mode as recorded
+#   provenance    how model and effort were determined (README §1, verbatim where possible)
+#   prompt        "v0" (prompt0.txt) or "v1" (prompt1.txt)
+#   product_file  the product HTML file inside the folder
+#   source_url    the original chat URL (TRANSCRIPTION.md header)
+#   date          date of the chat (YYYY-MM-DD)
+#   thumbnail     optional: repo path of the card picture, one of this candidate's review or judge
+#                 screenshots (default: its first review screenshot)
+#
+# Dates: the Anthropic and OpenAI headers carry timestamps (2026-10-29). The Mistral,
+# Gemini and Copilot headers carry no date; ReviewOrchestrator/README.md says all chats
+# were collected on 2026-10-29, so that date is used for them.
+#
+# Thumbnails: the v0 browser reviews ran in a phone-sized portrait viewport, and the cards
+# crop 16:10 from the top, which cuts off the landscape. Those two cards use a landscape
+# judge screenshot instead.
+
+[[candidate]]
+slug = "opus55-max-v0"
+folder = "Anthropic-Web-Opus5.5-Max-v0"
+name = "Opus 5.5 Max · v0"
+label = "Opus 5.5 · v0"
+vendor = "Anthropic"
+product = "Claude.ai (Web)"
+model = "claude-opus-5-5"
+effort = "max"
+provenance = "conversation JSON: `claude-opus-5-5`, `effort_level: max`"
+prompt = "v0"
+product_file = "mandelbrot-room.html"
+source_url = "https://claude.ai/chat/09e85d21-ad05-4fe0-b10d-8ef14cc23da7"
+date = "2026-10-29"
+thumbnail = "Judge/Browser_HTML-Judge/screenshots/H-room.jpg"
+
+[[candidate]]
+slug = "opus55-max-v1"
+folder = "Anthropic-Web-Opus5.5-Max-v1"
+name = "Opus 5.5 Max · v1"
+label = "Opus 5.5 · v1"
+vendor = "Anthropic"
+product = "Claude.ai (Web)"
+model = "claude-opus-5-5"
+effort = "max"
+provenance = "conversation JSON: `claude-opus-5-5`, `effort_level: max`"
+prompt = "v1"
+product_file = "mandelbrot-xr.html"
+source_url = "https://claude.ai/chat/0a5ff96f-8165-4dec-b69e-0a0723d7d286"
+date = "2026-10-29"
+
+[[candidate]]
+slug = "gpt6-pro-v0"
+folder = "OpenAI-Web-GPT6-Pro-v0"
+name = "GPT6 Pro · v0"
+label = "GPT6 Pro · v0"
+vendor = "OpenAI"
+product = "ChatGPT (Web)"
+model = "GPT6 Pro"
+effort = "Pro"
+provenance = "user's example name; UI shows \"Thinking effort: Pro\""
+prompt = "v0"
+product_file = "mandelbrot-room.html"
+source_url = "https://chatgpt.com/c/6ae355ca-17a4-83eb-b26b-38244eb1971e"
+date = "2026-10-29"
+thumbnail = "Judge/Browser_HTML-Judge/screenshots/C-overview.jpg"
+
+[[candidate]]
+slug = "gpt6-pro-v1"
+folder = "OpenAI-Web-GPT6-Pro-v1"
+name = "GPT6 Pro · v1"
+label = "GPT6 Pro · v1"
+vendor = "OpenAI"
+product = "ChatGPT (Web)"
+model = "GPT6 Pro"
+effort = "Pro"
+provenance = "same UI as v0 (\"Thinking effort: Pro\"); confirmed by user"
+prompt = "v1"
+product_file = "mandelbrot-room.html"
+source_url = "https://chatgpt.com/c/6ae356bd-fa4c-83eb-8b2c-5a777b52333a"
+date = "2026-10-29"
+
+[[candidate]]
+slug = "gemini4-argon-high-v1"
+folder = "Google-Web-Gemini4Argon-High-v1"
+name = "Gemini 4 Argon High · v1"
+label = "Gemini 4 Argon · v1"
+vendor = "Google"
+product = "Gemini (Web, Canvas)"
+model = "Gemini 4 Argon"
+effort = "Hoch (High)"
+provenance = "model picker \"4 Argon\", Denkaufwand \"Hoch\""
+prompt = "v1"
+product_file = "holographic_3d_mandelbrot_webxr_sanctuary.html"
+source_url = "https://gemini.google.com/app/bb0b8f672792cf16"
+date = "2026-10-29"
+
+[[candidate]]
+slug = "mistral-large4-v1"
+folder = "Mistral-VibeCode-MistralLarge4-Default-v1"
+name = "Mistral Large 4 · v1"
+label = "Mistral Large 4 · v1"
+vendor = "Mistral"
+product = "Le Chat / Vibe (Code, web)"
+model = "Mistral Large 4"
+effort = "Default (the UI shows no effort setting)"
+provenance = "the UI shows no model; the user said \"Mistral Large 4\""
+prompt = "v1"
+product_file = "mandelbrot-xr.html"
+source_url = "https://chat.mistral.ai/code/01a18896-7c9a-7259-a8b0-1021401b8abd/01a18897-02b1-723e-8eac-66f06540eb7a"
+date = "2026-10-29"
+
+[[candidate]]
+slug = "copilot-autopilot-v1"
+folder = "GitHub-CopilotTasks-Auto-Autopilot-v1"
+name = "Copilot Autopilot · v1"
+label = "Copilot Autopilot · v1"
+vendor = "GitHub"
+product = "Copilot Tasks (cloud session)"
+model = "Auto (resolved to gpt-5.6-luna)"
+effort = "Autopilot mode (the UI shows no reasoning-effort setting)"
+provenance = "user: model Auto, mode Autopilot, approval Allow all; the model tooltip shows that Auto resolved to `gpt-5.6-luna`"
+prompt = "v1"
+product_file = "mandelbrot-xr.html"
+source_url = "https://github.com/copilot/tasks/b471892c-1453-4af2-92fa-5f94611b2a73"
+date = "2026-10-29"
+
+[[candidate]]
+slug = "copilot-interactive-v1"
+folder = "GitHub-CopilotTasks-Auto-Interactive-v1"
+name = "Copilot Interactive · v1"
+label = "Copilot Interactive · v1"
+vendor = "GitHub"
+product = "Copilot Tasks (cloud session)"
+model = "Auto (resolved to gpt-5.6-luna)"
+effort = "Interactive mode (the UI shows no reasoning-effort setting)"
+provenance = "user: model Auto, mode Interactive, approval Assisted; the model tooltip shows that Auto resolved to `gpt-5.6-luna`"
+prompt = "v1"
+product_file = "mandelbrot-xr.html"
+source_url = "https://github.com/copilot/tasks/1976d0f6-45af-48c0-b323-2ce130b5afeb"
+date = "2026-10-29"

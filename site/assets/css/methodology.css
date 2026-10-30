@@ -1,0 +1,111 @@
+/* methodology/ — caveats, pipeline diagram, incidents, prompts and diff. Tokens from base.css only. */
+
+.meth-head .lede { margin-bottom: var(--space-4); }
+
+/* in-page table of contents */
+.meth-toc { max-width: calc(var(--measure) + 2 * var(--space-4)); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: var(--space-3); margin: 0 0 var(--space-5); }
+.meth-toc .toc-h { font-size: var(--text-sm); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 var(--space-2); font-weight: 600; }
+/* column-major (reads down each column), balanced; numbers right-aligned in a fixed slot so labels line up */
+.meth-toc ol { margin: 0; padding: 0; list-style: none; columns: 3 11rem; column-gap: var(--space-4); counter-reset: toc; }
+.meth-toc li { counter-increment: toc; max-width: none; break-inside: avoid; padding: 2px 0; }
+.meth-toc li::before { content: counter(toc) "."; display: inline-block; width: 1.8em; margin-right: var(--space-1); text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: var(--text-sm); }
+.meth-toc a { text-decoration: none; }
+.meth-toc a:hover { text-decoration: underline; }
+
+.meth-sec { border-top: 1px solid var(--border); padding-top: var(--space-2); margin-top: var(--space-5); scroll-margin-top: var(--space-3); }
+.meth-sec > h2 { margin-top: var(--space-3); scroll-margin-top: var(--space-3); }
+.meth-sec h3 { margin-top: var(--space-5); }
+.meth-sec .to-top { font-size: var(--text-sm); margin-top: var(--space-4); }
+.meth-sec .to-top a { color: var(--muted); }
+
+/* caveats */
+/* the caveat panel: reading-measure wide, neutral frame; the accent marks only the lead sentence */
+/* no outer card: the section heading groups the caveats; one accent rule on the lead, one grey rule on quotes */
+.cav-box { max-width: calc(var(--measure) + 2 * var(--space-4)); }
+.cav-lead { border-left: 4px solid var(--accent); padding-left: var(--space-3); font-size: var(--text-base); }
+.cav-list { margin: var(--space-3) 0 0; padding-left: 1.4em; }
+.cav-list > li { max-width: var(--measure); margin-bottom: var(--space-4); }
+.cav-list > li:last-child { margin-bottom: 0; }
+.cav h3 { margin: 0 0 var(--space-1); font-size: var(--text-lg); }
+.cav-claim { font-size: var(--text-base); margin-bottom: var(--space-2); }
+/* one nesting level less: the fold is a plain disclosure, the quotes plain blockquotes */
+.cav details.fold { background: none; border: 0; padding: 0; }
+.cav details.fold > summary { font-size: var(--text-sm); }
+.cav .quote { background: none; margin-top: var(--space-2); padding-block: 0; }
+.cav .quote cite .evidence .gh { white-space: nowrap; }
+
+/* plain one-line statement */
+.plain-line { border-left: 4px solid var(--accent); padding: var(--space-2) var(--space-3); background: var(--accent-soft); border-radius: 0 var(--radius) var(--radius) 0; }
+
+/* pipeline: horizontal on wide screens, stacked below */
+.pipeline-fig { margin: var(--space-4) 0 var(--space-2); }
+.pipeline-wrap { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-2); padding: var(--space-3); overflow-x: auto; }
+.pipeline { display: block; }
+.pipeline.pl-h { display: none; }
+.pipeline.pl-v { max-width: 380px; margin: 0 auto; }
+@media (min-width: 72rem) {
+  .pipeline.pl-h { display: block; }
+  .pipeline.pl-v { display: none; }
+}
+.pipeline .pl-box { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1; }
+.pipeline .pl-num { fill: var(--accent); font-weight: 700; font-size: 18px; }
+.pipeline .pl-title { fill: var(--fg); font-weight: 650; font-size: 18px; }
+.pipeline .pl-label { fill: var(--muted); font-size: 11px; letter-spacing: .08em; font-weight: 600; }
+.pipeline .pl-tool { fill: var(--fg); font-family: var(--mono); font-size: 14px; }
+.pipeline .pl-out { fill: var(--fg); font-size: 14px; }
+.pipeline .pl-arrow { stroke: var(--border-strong); stroke-width: 2; fill: none; }
+.pipeline .pl-head { fill: var(--border-strong); }
+.pipeline-list li { margin-bottom: var(--space-2); }
+
+/* tables on this page */
+.meth-table td, .meth-table th { white-space: nowrap; }
+.meth-table td:last-child { white-space: normal; min-width: 12rem; }
+.meth-table td.letter { text-align: center; font-family: var(--mono); font-weight: 600; }
+.meth-table .ok { color: var(--good); font-weight: 600; }
+.meth-table .bad { color: var(--bad); font-weight: 600; }
+.meth-table .discarded-row { background: var(--surface-2); }
+
+.env-facts li { margin-bottom: var(--space-1); }
+
+/* incidents */
+.inc-nav ol { columns: 2 16rem; column-gap: var(--space-5); margin: 0 0 var(--space-4); padding-left: 1.4em; }
+.inc-nav li { break-inside: avoid; margin-bottom: var(--space-1); }
+.incident { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: var(--space-3) var(--space-3) var(--space-2); margin: 0 0 var(--space-3); max-width: 80ch; scroll-margin-top: var(--space-3); }
+.incident h4 { margin: 0 0 var(--space-2); font-size: var(--text-lg); }
+.incident .inc-ref { display: inline-block; font-size: var(--text-xs); font-weight: 600; color: var(--muted); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 0 var(--space-1); margin-right: var(--space-1); vertical-align: .2em; font-variant-numeric: tabular-nums; }
+.incident .quote { background: var(--bg); border-left-color: var(--accent); }
+.incident .quote .md > :last-child { margin-bottom: 0; }
+.inc-ev-wrap { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); align-items: baseline; margin-bottom: var(--space-2); }
+.inc-ev { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); list-style: none; margin: 0; padding: 0; }
+.inc-ev li { max-width: none; }
+
+/* prompts */
+.prompt-pair { display: grid; gap: var(--space-4); grid-template-columns: 1fr; }
+@media (min-width: 56rem) { .prompt-pair { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); } }
+.prompt-col { min-width: 0; }
+.prompt-col h3 { margin-top: var(--space-3); }
+.prompt-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-sm); border: 1px solid var(--border); max-width: var(--measure); }
+.diff { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: var(--text-sm); line-height: 1.7; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-3); max-width: var(--measure); margin-bottom: var(--space-3); }
+.diff del, .diff ins, del.key, ins.key { padding: 0 2px; border-radius: 2px; }
+.diff del, del.key { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
+.diff ins, ins.key { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: .2em; color: var(--good); background: color-mix(in srgb, var(--good) 12%, transparent); }
+.diff del::before, del.key::before { content: "−"; font-weight: 700; margin-right: 1px; text-decoration: none; display: inline-block; }
+.diff ins::before, ins.key::before { content: "+"; font-weight: 700; margin-right: 1px; text-decoration: none; display: inline-block; }
+.diff-list q { font-style: normal; }
+
+/* derived metrics */
+.formulas dt { font-weight: 650; margin-top: var(--space-3); }
+.formulas dd { margin: var(--space-1) 0 0; }
+.formula { font-family: var(--mono); font-size: var(--text-sm); background: var(--surface-2); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); display: inline-block; max-width: 100%; overflow-wrap: anywhere; }
+
+/* small screens: flatten the nesting of the caveat box */
+@media (max-width: 30rem) {
+  .cav-list { padding-left: 1.1em; }
+  .cav-claim { font-size: var(--text-base); }
+  .cav .quote { padding: 0 0 0 12px; }
+  .cav details.fold { padding: 0; }
+  /* citations: smaller, so "path, line N ↗ GitHub" fits on one line */
+  .cav .quote cite, .cav .quote cite .evidence .gh { font-size: var(--text-xs); }
+  .incident { padding: var(--space-2); }
+  .incident .quote { padding: var(--space-2); }
+}

@@ -1,0 +1,90 @@
+/* techniques/ — special-elements catalog and claims-vs-code section */
+
+.tq-head .lede { margin-bottom: var(--space-2); }
+.tq-head p { max-width: var(--measure-text, var(--measure)); }
+
+/* index of techniques */
+.tq-index { margin: var(--space-4) 0 var(--space-3); padding: var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.tq-index-h { font-size: var(--text-base); margin: 0 0 var(--space-2); }
+.tq-index ol { margin: 0 0 var(--space-2); padding-left: var(--space-5); columns: 1; column-gap: var(--space-5); }
+.tq-index li { break-inside: avoid; padding: var(--space-1) 0; max-width: none; }
+.tq-index .tq-idx-n { font-variant-numeric: tabular-nums; }
+.tq-nw { white-space: nowrap; }
+.tq-index > p:last-child { margin: 0; }
+@media (min-width: 40rem) { .tq-index ol { columns: 2; } }
+@media (min-width: 64rem) { .tq-index ol { columns: 3; } }
+
+/* the rules fold spans the same width as the techniques card above it; its text keeps the reading measure */
+.tq-rules { max-width: none; }
+.tq-rules > p, .tq-rules > ol { max-width: var(--measure-text, var(--measure)); }
+.tq-rule-list { padding-left: var(--space-5); }
+.tq-rule-list li { margin-bottom: var(--space-1); }
+.tq-rule-list code { overflow-wrap: anywhere; font-size: var(--text-xs); }
+
+/* matrix */
+.tq-matrix-wrap { position: relative; }   /* contains the .sr-only spans of its cells */
+/* desktop: the whole matrix fits, so it takes its natural height (no nested vertical scroller on a long page);
+   below 64rem it keeps the shared matrix behaviour (own scroll box, sticky header and first column) and says so */
+@media (min-width: 64rem) { .matrix-wrap.tq-matrix-wrap { max-height: none; } .tq-scroll-note { display: none; } }
+.tq-matrix thead th { vertical-align: bottom; }
+.tq-matrix th[scope="col"].num { white-space: normal; min-width: 80px; vertical-align: bottom; line-height: 1.3; }
+.tq-matrix th[scope="col"].num:last-child, .tq-matrix td.tq-tot { width: 1%; min-width: 0; }
+.tq-cv { display: block; white-space: nowrap; }
+/* candidate columns: header and counts centred on one axis (the Bullets totals column stays right-aligned) */
+.tq-matrix th.tq-c, .tq-matrix td.tq-c { text-align: center; }
+.tq-matrix-p { max-width: var(--measure-text, var(--measure)); }
+.tq-matrix th[scope="col"] a { color: var(--fg); }
+.tq-matrix tbody th { white-space: normal; min-width: 176px; max-width: 260px; font-weight: 600; }
+@media (min-width: 64rem) {
+  .tq-matrix tbody th, .tq-matrix tfoot th, .tq-matrix thead th:first-child { min-width: 232px; width: 240px; }
+  .tq-matrix th[scope="col"].num { min-width: 100px; }
+}
+.tq-matrix tbody th a { color: var(--fg); text-decoration: none; }
+.tq-matrix tbody th a:hover { text-decoration: underline; }
+/* credited cells: inline single-hue fill scaled by count (same blue scale as the score heatmaps, both themes) */
+.tq-matrix td.tq-hit { font-weight: 650; }
+.tq-matrix td.tq-hit a { color: inherit; text-decoration: none; display: block; }
+.tq-legend-p { margin: 0 0 var(--space-2); }
+.tq-matrix td.tq-hit a:hover { text-decoration: underline; }
+.tq-matrix td.tq-none { color: var(--muted); }
+.tq-matrix td.tq-tot { color: var(--muted); border-left: 1px solid var(--border); }
+.tq-matrix tfoot th, .tq-matrix tfoot td { border-top: 2px solid var(--border-strong); border-bottom: 0; background: var(--surface-2); }
+.tq-matrix tfoot td.tq-tot { color: var(--fg); font-weight: 650; }
+/* the totals row keeps its label pinned too, like the body rows (.matrix-wrap) */
+.tq-matrix tfoot th { position: sticky; left: 0; z-index: 1; box-shadow: 1px 0 0 var(--border); }
+
+/* technique sections */
+.tq-sec { margin-top: var(--space-5); padding-top: var(--space-2); border-top: 1px solid var(--border); scroll-margin-top: var(--space-3); }
+.tq-sec h2 { margin-top: var(--space-3); }
+.tq-desc { color: var(--fg); margin-bottom: var(--space-1); }
+.tq-stats { margin-bottom: var(--space-2); font-variant-numeric: tabular-nums; }
+.tq-chips { margin-bottom: var(--space-3); max-width: none; }
+.tq-chip .tq-n { color: var(--muted); font-variant-numeric: tabular-nums; }
+.tq-bullets, .tq-quotes { list-style: none; margin: 0 0 var(--space-3); padding: 0; }
+.tq-bullets > li, .tq-quotes > li { max-width: var(--measure); margin: 0 0 var(--space-3); }
+.tq-bullets > li:target .quote { border-left-color: var(--accent); background: var(--accent-soft); }
+.tq-bullets .quote, .tq-quotes .quote { margin: 0; }
+.tq-letter { font-family: var(--mono); font-weight: 700; font-size: 1.15em; }
+/* attribution lines: the GitHub qualifier at the citation's own size */
+.tq-bullets .quote cite .evidence .gh, .tq-quotes .quote cite .evidence .gh { font-size: 1em; }
+.tq-map { white-space: nowrap; }
+@media (max-width: 30rem) { .tq-map { white-space: normal; } }
+.tq-tags { margin: var(--space-1) 0 0; padding-left: var(--space-3); }
+.tq-tags .chip { font-size: var(--text-xs); margin-bottom: var(--space-1); }
+.tq-also-h { font-size: var(--text-sm); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: var(--space-3) 0 var(--space-1); }
+.tq-also { padding-left: var(--space-4); }
+
+/* claims vs code */
+.tq-mm { margin-top: var(--space-6); padding-top: var(--space-2); border-top: 2px solid var(--border-strong); }
+.tq-mm .note code { overflow-wrap: anywhere; font-size: var(--text-xs); }
+.tq-mm-group h3 { margin-top: var(--space-4); }
+.tq-mm-group h3 > a { color: var(--fg); }
+.tq-mm-meta { font-weight: 400; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tq-sub { margin: var(--space-1) 0 0; padding-left: var(--space-4); }
+.tq-sub li { margin-bottom: var(--space-1); }
+@media (max-width: 30rem) {
+  .tq-matrix tbody th, .tq-matrix tfoot th { min-width: 128px; }
+  .tq-matrix th[scope="col"].num { min-width: 88px; }
+}
+/* focus inside a shaded cell: two-tone ring (the cell's own text colour + a page-surface halo) that reads on every shade */
+.tq-matrix td.tq-hit a:focus-visible { outline: 3px solid currentColor; outline-offset: 1px; box-shadow: 0 0 0 6px var(--surface); border-radius: 2px; position: relative; z-index: 2; }

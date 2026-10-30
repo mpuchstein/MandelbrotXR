@@ -1,0 +1,80 @@
+/* data/, data/changelog/ and the search page's surrounding text (the search UI itself is styled in search.css).
+   Tokens from base.css only. */
+
+.data-head .lede { margin-bottom: var(--space-3); }
+.data-links { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0 0 var(--space-4); }
+
+section.data-sec { margin-top: var(--space-5); }
+section.data-sec > h2 { border-top: 1px solid var(--border); padding-top: var(--space-4); }
+section.data-sec h3 { margin-top: var(--space-5); }
+
+/* file list and schema tables */
+.data-file-list { list-style: none; padding: 0; margin: var(--space-3) 0; display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); }
+.data-file { max-width: none; display: flex; flex-direction: column; gap: var(--space-1); }
+.data-file p { margin: 0; }
+.data-file-name { font-weight: 600; font-size: var(--text-lg); overflow-wrap: anywhere; }
+.data-file-name code { background: none; padding: 0; font-size: 1em; }
+.data-file-desc { font-size: var(--text-sm); }
+.data-sec time, .data-head time { white-space: nowrap; }
+/* schema tables use the same full width as the file-card grid above them */
+table.schema { width: 100%; table-layout: fixed; font-size: .9375rem; }
+table.schema thead th:first-child { width: 40%; }
+table.schema th[scope="row"] { font-weight: 500; overflow-wrap: break-word; vertical-align: top; }
+table.schema th[scope="row"] code { font-size: var(--text-sm); }
+.schema-type { display: block; margin-top: var(--space-1); color: var(--muted); font-size: .8125rem; font-weight: 400; }
+table.schema td { vertical-align: top; overflow-wrap: anywhere; }
+@media (min-width: 48rem) { table.schema thead th:first-child { width: 32%; } }
+table.schema .derived { margin-left: var(--space-1); }
+.data-notes { padding-left: 1.2em; }
+.data-notes li { margin-bottom: var(--space-2); }
+.data-paths { margin: var(--space-1) 0 0; padding-left: 1.2em; }
+.data-paths li { margin-bottom: var(--space-1); }
+/* dates: proportional figures (tabular figures widen the hyphens in 2026-10-30) */
+.data-head time, .data-sec time, .cl-meta time { font-variant-numeric: normal; }
+/* folded examples grow instead of scrolling inside the page (no unfocusable scroll regions) */
+.data-sec details.fold pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-sm); }
+
+/* changelog */
+/* capped so each entry's score / first pick sits near its title */
+.changelog { list-style: none; margin: var(--space-4) 0 0; padding: 0; max-width: 48rem; }
+.cl-commit { position: relative; max-width: none; padding: 0 0 var(--space-5) var(--space-4); border-left: 2px solid var(--border); margin-left: var(--space-1); }
+.cl-commit::before {
+  content: ""; position: absolute; left: -7px; top: .35em; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--bg); border: 2px solid var(--accent);
+}
+.cl-commit:last-child { border-left-color: transparent; padding-bottom: 0; }
+.cl-meta { font-size: var(--text-sm); color: var(--muted); }
+.cl-meta a { color: inherit; }
+/* each meta item wraps as a unit; the separator travels with the item it introduces */
+.cl-mi { white-space: nowrap; }
+.cl-mi + .cl-mi::before { content: "·\00a0"; }
+.cl-meta code { font-size: .92em; color: var(--fg); }
+.cl-entries li:hover { background: var(--surface); }
+.cl-subject { font-size: var(--text-lg); margin: var(--space-1) 0 var(--space-3); scroll-margin-top: var(--space-3); }
+.cl-group { font-size: var(--text-sm); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: var(--space-4) 0 var(--space-2); }
+.cl-entries { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+.cl-entries li {
+  max-width: none; display: grid; grid-template-columns: 1fr auto; gap: 0 var(--space-3); align-items: baseline;
+  padding: var(--space-2) 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere;
+}
+.cl-what { min-width: 0; }
+.cl-what a { color: var(--fg); text-decoration-color: var(--accent); }
+.cl-what a:hover { color: var(--accent); }
+/* middle column: one style in every group (score or first pick), right-aligned with tabular figures */
+.cl-mid { font-weight: 600; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cl-mid .muted { font-weight: 400; }
+.cl-top { grid-column: 1 / -1; text-align: left; white-space: normal; font-size: var(--text-sm); }
+.cl-src { grid-column: 1 / -1; color: var(--muted); white-space: nowrap; }
+.cl-src a { color: inherit; }
+@media (min-width: 48rem) {
+  .cl-entries li { grid-template-columns: 1fr 16rem 5rem; }
+  .cl-src { grid-column: auto; text-align: right; }
+  .cl-top { grid-column: auto; text-align: right; white-space: nowrap; }
+}
+.cl-other { margin-top: var(--space-3); }
+.cl-other ul { margin: var(--space-2) 0 0; padding-left: 1.2em; font-size: var(--text-sm); overflow-wrap: anywhere; }
+
+/* search page text around the search UI */
+.search-head .lede { margin-bottom: var(--space-2); }
+.search-examples { display: block; }
+.nojs-note { margin-top: var(--space-5); max-width: var(--measure, 70ch); }
