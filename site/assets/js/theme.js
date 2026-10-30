@@ -4,6 +4,7 @@
 (function () {
   "use strict";
   var KEY = "mxr-theme", root = document.documentElement;
+  root.classList.add("js"); // JS-only controls are styled visible via html.js before first paint (no layout shift)
   var media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
   function stored() { try { var v = localStorage.getItem(KEY); return v === "light" || v === "dark" ? v : null; } catch (e) { return null; } }
   function store(v) { try { localStorage.setItem(KEY, v); } catch (e) { /* storage blocked: choice lasts for this page only */ } }
@@ -18,7 +19,6 @@
       btn.setAttribute("aria-pressed", isDark() ? "true" : "false");
       if (state) state.textContent = isDark() ? ": on" : ": off";
     }
-    btn.hidden = false;
     sync();
     btn.addEventListener("click", function () { var v = isDark() ? "light" : "dark"; apply(v); store(v); sync(); });
     if (media && media.addEventListener) media.addEventListener("change", sync);

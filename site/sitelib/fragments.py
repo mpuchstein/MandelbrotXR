@@ -4,7 +4,7 @@ from __future__ import annotations
 from .data import Candidate, Judge, Model, Review, fmt_mean, fmt_score
 from .layout import Site, esc
 
-__all__ = ["cand_url", "play_url", "judge_url", "review_url", "compare_url", "cat", "cat_dash", "cat_marker",
+__all__ = ["bind", "HEAT_LEVELS", "cand_url", "play_url", "judge_url", "review_url", "compare_url", "cat", "cat_dash", "cat_marker",
            "marker_svg", "heat", "score_heat", "heat_legend",
            "caveats_html", "standing_html", "fmt_mean", "fmt_score", "CAVEATS", "md_link", "render_md"]
 
@@ -62,36 +62,26 @@ def marker_svg(i: int, x: float, y: float, r: float = 4.5, extra: str = "") -> s
     return f'<polygon points="{" ".join(f"{px:.1f},{py:.1f}" for px, py in pts)}" style="fill:{fill}"{extra}/>'
 
 
-# single-hue sequential ramp (Mandelbrot deep blue), light -> dark; colour is never the only channel
-_RAMP = [(239, 243, 250), (198, 214, 238), (148, 178, 222), (95, 138, 199), (52, 99, 168), (25, 64, 128), (12, 36, 82)]
+# single-hue sequential scale: 10 levels defined as theme-aware tokens in base.css (--heat-k / --heat-fg-k,
+# light: pale → deep blue; dark: near-surface → light blue), so the most emphasised level differs from the
+# page background in both themes and every text/background pair is ≥ 4.5:1. Colour is never the only channel.
+HEAT_LEVELS = 10
 
 
-def _lerp(t: float) -> tuple[int, int, int]:
-    t = min(1.0, max(0.0, t)) * (len(_RAMP) - 1)
-    i = min(int(t), len(_RAMP) - 2)
-    f = t - i
-    return tuple(round(a + (b - a) * f) for a, b in zip(_RAMP[i], _RAMP[i + 1]))
-
-
-def _style(rgb: tuple[int, int, int]) -> str:
-    def lin(c: int) -> float:
-        c /= 255
-        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
-    r, g, b = rgb
-    lum = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
-    fg = "#111111" if (lum + 0.05) / 0.05 >= 1.05 / (lum + 0.05) else "#ffffff"
-    return f"background:#{r:02x}{g:02x}{b:02x};color:{fg}"
+def _level_style(t: float) -> str:
+    k = round(min(1.0, max(0.0, t)) * (HEAT_LEVELS - 1))
+    return f"background:var(--heat-{k});color:var(--heat-fg-{k})"
 
 
 def heat(rank: float, n: int) -> str:
-    """Inline style for a rank cell (single-hue scale): rank 1 = darkest blue, rank n = lightest.
+    """Inline style for a rank cell: rank 1 = most emphasis, rank n = least.
     The rank number stays printed in the cell; pair with heat_legend()."""
-    return _style(_lerp(1 - (rank - 1) / max(1, n - 1)))
+    return _level_style(1 - (rank - 1) / max(1, n - 1))
 
 
 def score_heat(score: float, lo: float = 0, hi: float = 10) -> str:
-    """Inline style for a 1–10 score cell (same single-hue scale): higher = darker."""
-    return _style(_lerp((score - lo) / (hi - lo)))
+    """Inline style for a score cell (same scale): higher = more emphasis."""
+    return _level_style((score - lo) / (hi - lo))
 
 
 def heat_legend(n: int) -> str:
@@ -107,8 +97,24 @@ CAVEATS = [
      "and the \"highest possible visual wow effect\"). Each candidate was judged against its own prompt, in one combined ranking."),
     ("No headset", "No real VR or AR session was entered. Everything was tested in desktop Chrome, without an XR device "
      "or emulator; phone widths were simulated."),
-    ("Same model family", "All reviewers and judges were Opus 5.5 agents, and two of the eight candidates are Opus 5.5 builds."),
+    ("Same model family", "All reviewers and judges were Opus 5.5 agents."),  # completed by bind()
 ]
+
+REVIEWER_MODEL = "claude-opus-5-5"  # the model of every reviewer and judge (ReviewOrchestrator/README.md, Judge/README.md)
+_WORDS = "no one two three four five six seven eight nine ten eleven twelve".split()
+
+
+def _count(n: int) -> str:
+    return _WORDS[n] if n < len(_WORDS) else str(n)
+
+
+def bind(model: Model) -> None:
+    """Fill the data-dependent caveat text from the model (called once by build.py; mutates CAVEATS in place)."""
+    same = sum(1 for c in model.candidates if c.model == REVIEWER_MODEL)
+    text = "All reviewers and judges were Opus 5.5 agents"
+    text += (f", and {_count(same)} of the {_count(len(model.candidates))} candidates "
+             f"{'is an Opus 5.5 build' if same == 1 else 'are Opus 5.5 builds'}." if same else ".")
+    CAVEATS[2] = ("Same model family", text)
 
 
 def caveats_html(compact: bool = False) -> str:

@@ -14,6 +14,7 @@ import math
 import os
 import re
 import subprocess
+import sys
 import tomllib
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -289,9 +290,23 @@ def _json(repo: str, rel: str):
         raise DataError(f"{rel}: invalid JSON ({e})") from None
 
 
+_FILES: dict[str, frozenset] = {}
+
+
+def repo_files(repo: str) -> frozenset:
+    """Repo-relative paths git considers part of the tree: committed plus untracked-but-not-ignored files
+    (the latter mark the build '-dirty'). Ignored files (caches, build output) are never rendered."""
+    if repo not in _FILES:
+        out = git(repo, "ls-files", "-z", "--cached", "--others", "--exclude-standard")
+        _FILES[repo] = frozenset(p for p in out.split("\0") if p and os.path.exists(os.path.join(repo, p)))
+    return _FILES[repo]
+
+
 def _listdir(repo: str, rel: str) -> list[str]:
-    p = os.path.join(repo, rel)
-    return sorted(n for n in os.listdir(p) if n != "__pycache__" and not n.startswith(".")) if os.path.isdir(p) else []
+    """Entries of a repo directory that contain (or are) files known to git; see repo_files()."""
+    prefix = rel.rstrip("/") + "/"
+    names = {p[len(prefix):].split("/", 1)[0] for p in repo_files(repo) if p.startswith(prefix)}
+    return sorted(n for n in names if n != "__pycache__" and not n.startswith("."))
 
 
 def section(md: str, heading: str) -> str | None:
@@ -564,6 +579,9 @@ def load(repo: str) -> Model:
         c.transcription = f"{c.folder}/TRANSCRIPTION.md"
         if not os.path.isfile(os.path.join(repo, c.transcription)):
             fail(cpath, f"candidate {c.slug!r}: {c.transcription} does not exist")
+        src = re.search(r"^- Source:\s*(\S+)", _read(repo, c.transcription), re.M)
+        if src and src.group(1) != c.source_url:
+            fail(cpath, f"candidate {c.slug!r}: source_url {c.source_url} differs from the '- Source:' line of {c.transcription} ({src.group(1)})")
 
     # phase-1 blinding
     bpath = "ReviewOrchestrator/blind-mapping.json"
@@ -623,8 +641,9 @@ def load(repo: str) -> Model:
         if d.endswith("-Judge") and os.path.isfile(os.path.join(repo, "Judge", d, "RANKING.md")):
             present[d.removesuffix("-Judge").lower()] = d
     for jid in list(jmap) + sorted(set(present) - set(jmap)):
-        if jid not in present:
-            continue          # mapping entry without a RANKING.md: not a judgment (yet)
+        if jid not in present:  # mapping entry without a RANKING.md: not a judgment (yet); say so
+            print(f"build: note: {mpath} has an entry {jid!r} but no Judge/<X>-Judge/RANKING.md for it; not shown", file=sys.stderr)
+            continue
         d = present[jid]
         rp = f"Judge/{d}/RANKING.md"
         if jid not in jmap:

@@ -76,7 +76,7 @@ effort = "Pro"
 provenance = "same UI as v0 (\"Thinking effort: Pro\"); confirmed by user"
 prompt = "v1"
 product_file = "mandelbrot-room.html"
-source_url = "https://chatgpt.com/c/6ae356bd-fa4c-83eb-b26b-38244eb1971e"
+source_url = "https://chatgpt.com/c/6ae356bd-fa4c-83eb-8b2c-5a777b52333a"
 date = "2026-10-29"
 
 [[candidate]]

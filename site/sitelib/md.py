@@ -870,7 +870,7 @@ class _Renderer:
     def _table_html(self, node: tuple) -> str:
         _, _, _, head, aligns, rows = node
         cls = [f' class="align-{a}"' if a else "" for a in aligns]
-        parts = ['<div class="table-wrap"><table>', "<thead>", "<tr>"]
+        parts = ['<div class="table-wrap" tabindex="0" role="region" aria-label="Table (scrolls horizontally)"><table>', "<thead>", "<tr>"]
         parts += [f"<th{a}>{self.inline(c)}</th>" for a, c in zip(cls, head)]
         parts += ["</tr>", "</thead>"]
         if rows:

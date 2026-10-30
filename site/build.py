@@ -17,7 +17,7 @@ sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)  # python -I does not put the script's directory on sys.path
 
-from sitelib import data, layout  # noqa: E402
+from sitelib import data, fragments, layout  # noqa: E402
 from sitelib.data import DataError  # noqa: E402
 
 MARKER = ".mandelbrotxr-site"
@@ -94,6 +94,7 @@ def main(argv=None) -> int:
     try:
         gitinfo = data.git_info(a.repo)
         model = data.load(a.repo)
+        fragments.bind(model)
         out = os.path.abspath(a.out)
         prepare_out(out)
         site = layout.Site(model, out, base, gitinfo)
