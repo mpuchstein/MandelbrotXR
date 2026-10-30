@@ -437,21 +437,18 @@ def sec_blinding(site: Site, srcs: dict[str, Src]) -> str:
                           f'({bsrc.ev(f"blind.py, line {i}", i)}).</p>')
                 break
     plan_q = ""
-    if plan:
-        try:
-            plan_q = quote_sentence(site, plan, "best effort")
-        except DataError:
-            plan_q = ""
+    if plan:  # PLAN.md is optional; when present, its "best effort" sentence must be there
+        plan_q = ('<p>The orchestrator\'s plan states the limit of this anonymization:</p>'
+                  + quote_sentence(site, plan, "best effort"))
     patch_q = quote_sentence(site, jr, "except for the one patch below")
     native = ""
-    try:
-        _, mln, mbody = jr.section(r"^Method$")
-        for it in list_items(mbody, mln):
-            t, _ = split_lead(it["text"])
-            if t and "dialog" in t.lower():
-                native = quote(site, jr, it["text"], it["line"], block=True)
-    except DataError:
-        pass
+    _, mln, mbody = jr.section(r"^Method$")
+    for it in list_items(mbody, mln):
+        t, _ = split_lead(it["text"])
+        if t and "dialog" in t.lower():
+            native = quote(site, jr, it["text"], it["line"], block=True)
+    if not native:  # "the one patch below" is this item
+        raise DataError(f"{J_README}: no item about the dialog patch under '## Method'")
     return (
         '<h3>Phase 1: candidate-NN</h3>'
         + quote(site, ro, blind_step["text"], blind_step["line"], block=True,
@@ -459,7 +456,7 @@ def sec_blinding(site: Site, srcs: dict[str, Src]) -> str:
         + seed_q
         + '<p>Reviewers saw only the blind id. The HTML reviewers read the copy named <code>index.html</code>; the transcript reviewers read the anonymized transcript linked in the last column.</p>'
         + t1
-        + '<p>The orchestrator\'s plan states the limit of this anonymization:</p>' + plan_q
+        + plan_q
         + '<h3>Phase 2: letters per judge</h3>'
         + quote_sentence(site, jr, "own seeded shuffle")
         + t2 + patch_q + native
@@ -476,10 +473,7 @@ def sec_effort(site: Site, srcs: dict[str, Src]) -> str:
     asked = ""
     p = srcs.get(f"{RO}/PROMPT.md")
     if p:
-        try:
-            asked = quote_sentence(site, p, "xhigh", label=f"{p.path} (the user's request), line {p.line_of('xhigh')}")
-        except DataError:
-            asked = ""
+        asked = quote_sentence(site, p, "xhigh", label=f"{p.path} (the user's request), line {p.line_of('xhigh')}")
     tr = ""
     tpath = f"{RO}/TRANSCRIPT.md"
     if os.path.isfile(os.path.join(site.repo, tpath)):
@@ -577,14 +571,14 @@ def sec_serving(site: Site, srcs: dict[str, Src]) -> str:
 
     # phase-2
     out.append("<h3>Phase-2 browser judges</h3>")
-    try:
-        _, mln, mbody = jr.section(r"^Method$")
-        for it in list_items(mbody, mln):
-            t, _ = split_lead(it["text"])
-            if t and t.lower().startswith(("serving", "scheduling")):
-                out.append(quote(site, jr, it["text"], it["line"], block=True))
-    except DataError:
-        pass
+    n = len(out)
+    _, mln, mbody = jr.section(r"^Method$")
+    for it in list_items(mbody, mln):
+        t, _ = split_lead(it["text"])
+        if t and t.lower().startswith(("serving", "scheduling")):
+            out.append(quote(site, jr, it["text"], it["line"], block=True))
+    if len(out) == n:  # the note on phase-2 server logs below rests on this statement
+        raise DataError(f"{J_README}: no 'Serving' or 'Scheduling' item under '## Method'")
     bj = [j for j in m.judges if j.browser and "PROMPT.txt" in j.files]
     if bj:
         head = "".join(f'<th scope="col" class="num">{esc(j.label)}</th>' for j in bj)
@@ -620,16 +614,17 @@ def sec_environment(site: Site, srcs: dict[str, Src]) -> str:
            '<li><strong>Frame rate:</strong> Chrome throttled background windows, so several reviewers could not judge frame rate.</li>'
            '<li><strong>XR entry:</strong> no real VR or AR session was entered.</li></ul>'
            '<p class="small muted">The list above restates the two passages below; the passages are the source.</p>']
-    if lim:
-        out.append(quote(site, ro, lim["text"], lim["line"], block=True, label=f"ReviewOrchestrator/README.md §3.{lim['num']}"))
-    try:
-        _, mln, mbody = jr.section(r"^Method$")
-        for it in list_items(mbody, mln):
-            t, _ = split_lead(it["text"])
-            if t and "environment" in t.lower():
-                out.append(quote(site, jr, it["text"], it["line"], block=True))
-    except DataError:
-        pass
+    if lim is None:  # the list above restates this passage and the Judge/README.md one
+        raise DataError(f"{RO_README}: no item about limits in the deviations section")
+    out.append(quote(site, ro, lim["text"], lim["line"], block=True, label=f"ReviewOrchestrator/README.md §3.{lim['num']}"))
+    n = len(out)
+    _, mln, mbody = jr.section(r"^Method$")
+    for it in list_items(mbody, mln):
+        t, _ = split_lead(it["text"])
+        if t and "environment" in t.lower():
+            out.append(quote(site, jr, it["text"], it["line"], block=True))
+    if len(out) == n:
+        raise DataError(f"{J_README}: no 'Environment' item under '## Method'")
     return "".join(out)
 
 
@@ -741,10 +736,10 @@ def sec_incidents(site: Site, srcs: dict[str, Src]) -> tuple[str, int]:
                 + (f'<div class="small inc-ev-wrap"><span class="muted">Evidence:</span>{ev_html}</div>' if ev_html else "")
                 + "</article>")
             rendered += 1
-    assert rendered == len(incs), f"methodology: rendered {rendered} incidents, parsed {len(incs)}"
     text = " ".join(i["raw"] for i in incs).lower()
     for must in ("redact", "c02", "alert(", "privacy"):
-        assert must in text, f"methodology: no incident mentions {must!r}; check the README incident sections"
+        if must not in text:
+            raise DataError(f"{RO_README}, {J_README}: no incident mentions {must!r}; check the README incident sections")
     jump = f'<nav class="inc-nav" aria-label="Incidents"><ol>{"".join(nav)}</ol></nav>'
     return parts[0] + jump + "".join(parts[1:]), rendered
 
@@ -757,25 +752,16 @@ def sec_discarded(site: Site, srcs: dict[str, Src]) -> str:
     out = []
     for d in m.discarded:
         out.append(f'<h3 id="discarded-{esc(d["id"])}"><code>{esc(d["id"])}</code></h3>')
-        try:
-            out.append("<p>Why it was discarded, from the orchestrator README:</p>" + quote_sentence(site, ro, "cached page")
-                       if "cached" in d["id"] else "")
-        except DataError:
-            pass
-        try:
-            out.append(quote_sentence(site, ro, d["id"]))
-        except DataError:
-            pass
+        if "cached" in d["id"]:
+            out.append("<p>Why it was discarded, from the orchestrator README:</p>" + quote_sentence(site, ro, "cached page"))
+        out.append(quote_sentence(site, ro, d["id"]))
         rp = d["files"].get("REVIEW.md")
         if rp and d["md"]:
             rsrc = Src(site, rp)
-            try:
-                _, line = parse_overall(d["md"], rp)
-                n = rsrc.line_of(line)
-                out.append("<p>The discarded review's own verdict, verbatim (it describes the cached page, not the candidate it was meant to test):</p>")
-                out.append(quote(site, rsrc, line.lstrip("# ").strip(), n))
-            except DataError:
-                pass
+            _, line = parse_overall(d["md"], rp)
+            n = rsrc.line_of(line)
+            out.append("<p>The discarded review's own verdict, verbatim (it describes the cached page, not the candidate it was meant to test):</p>")
+            out.append(quote(site, rsrc, line.lstrip("# ").strip(), n))
             v = section(d["md"], "Verdict")
             if v:
                 n = rsrc.line_of("## Verdict") + 1

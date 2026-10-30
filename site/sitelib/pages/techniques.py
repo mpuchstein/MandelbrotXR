@@ -18,7 +18,6 @@ import re
 from dataclasses import dataclass, field
 
 from .. import md
-from ..data import DataError
 from ..fragments import cand_url, judge_url, md_link, review_url, score_heat
 from ..layout import Site, esc
 
@@ -169,10 +168,6 @@ def assign(site: Site) -> list[Item]:
         for n, s in enumerate(j.special, 1):
             p, via, tags = classify(s)
             items.append(Item(j, n, s, p, via, tags))
-    total = sum(len(j.special) for j in site.model.judges)
-    if len(items) != total or any(not it.primary for it in items):
-        raise DataError(f"site/sitelib/pages/techniques.py: assigned {len(items)} special elements as primary, "
-                        f"but the judges list {total}")
     return items
 
 

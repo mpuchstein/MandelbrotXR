@@ -265,6 +265,12 @@ def test_validation(tmp: str) -> None:
     old = edit(R, lambda s: s.replace("| 8 |", "| eight |", 1))
     expect_failure(repo, "unparsable criterion score", "Review/HTML-Review/OpenAI-Web-GPT6-Pro-v0/REVIEW.md")
     open(R, "w", encoding="utf-8").write(old)
+    # a screenshot that is not an image
+    S = "Review/Browser-Review/Anthropic-Web-Opus5.5-Max-v0/screenshots/01-intro-panel.jpg"
+    shot = open(os.path.join(repo, S), "rb").read()
+    open(os.path.join(repo, S), "wb").write(b"not an image")
+    expect_failure(repo, "not a PNG or JPEG file", S)
+    open(os.path.join(repo, S), "wb").write(shot)
     # a sha mismatch
     P = os.path.join(repo, "OpenAI-Web-GPT6-Pro-v0/mandelbrot-room.html")
     with open(P, "ab") as f:
@@ -394,6 +400,35 @@ def test_parsers() -> None:
     assert (s.title, s.reason) == ("zoom claim vs code", "the transcript promises: zoom"), (s.title, s.reason)
 
 
+def test_errors() -> None:
+    """A failing git call ends as a DataError (one line, exit 2), and an absolute Markdown link target
+    stays unresolved instead of being looked up on the build machine."""
+    from types import SimpleNamespace
+    from sitelib import fragments
+    try:
+        data.git_info(os.path.join(REPO, "no-such-dir"))
+    except data.DataError as e:
+        assert "git rev-parse" in str(e), e
+    else:
+        raise AssertionError("git_info on a missing directory did not fail")
+    link = fragments.md_link(SimpleNamespace(repo=REPO), "Judge/README.md")
+    assert link("/etc/hostname") is None and link("/tmp/shot.png") is None, "an absolute link target was resolved"
+
+
+def test_methodology_errors(tmp: str) -> None:
+    """A passage the methodology page quotes, once missing, fails the build instead of leaving its lead-in."""
+    repo = copy_repo(os.path.join(tmp, "meth"))
+    out = os.path.join(tmp, "meth-out")
+    for rel, old, new in (("ReviewOrchestrator/PLAN.md", "best effort", "best-effort"),
+                          ("Judge/README.md", "\n## Method\n", "\n## 2. Method\n")):
+        p = os.path.join(repo, rel)
+        before = edit(p, lambda s: s.replace(old, new))
+        r = build(repo, out, "--pages", "methodology")
+        assert r.returncode == 2 and "build: data error:" in r.stderr and rel in r.stderr, \
+            f"{rel} without {old.strip()!r}: exit {r.returncode}, {r.stderr.strip()[-300:]}"
+        open(p, "w", encoding="utf-8").write(before)
+
+
 def test_home_ties(model: data.Model) -> None:
     """The home page's derived check reports a mean-rank tie at the boundary of the row it belongs to."""
     from types import SimpleNamespace
@@ -418,6 +453,8 @@ def main() -> None:
     print("ok  home page tie notes sit at the boundary of their own row")
     test_parsers()
     print("ok  parsers skip a score scale and keep a colon-in-bold special-element title")
+    test_errors()
+    print("ok  git failures are data errors; absolute Markdown link targets stay unresolved")
     with tempfile.TemporaryDirectory(prefix="mxr-test-") as tmp:
         a, b = os.path.join(tmp, "a"), os.path.join(tmp, "b")
         build_ok(REPO, a)
@@ -437,6 +474,8 @@ def main() -> None:
         print(f"ok  two builds are byte-identical ({len(da)} files)")
         test_validation(tmp)
         print("ok  validation fails loudly, naming the file")
+        test_methodology_errors(tmp)
+        print("ok  a missing methodology source passage fails the build")
         test_synthetic(tmp)
         print("ok  synthetic 6th judge, 4th review type and 9th candidate build without code changes")
     print("all tests passed")

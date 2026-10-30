@@ -22,7 +22,7 @@ from urllib.parse import urlsplit
 from xml.sax.saxutils import escape as xesc
 
 from .. import md
-from ..data import git_history
+from ..data import DataError, git_history
 from ..fragments import fmt_mean, fmt_score, judge_url, review_url
 from ..layout import GITHUB, Site, esc
 
@@ -310,21 +310,24 @@ def feed(site: Site, commits: list[dict]) -> str:
 
 def _validate_feed(xml: str) -> None:
     """RFC 4287 required elements: feed id/title/updated (+ author unless every entry has one);
-    entry id/title/updated, and a link rel=alternate or content."""
+    entry id/title/updated, and a link rel=alternate or content. A missing one is a DataError."""
+    def need(ok, msg: str) -> None:
+        if not ok:
+            raise DataError(f"feed.xml: {msg}")
     ns = {"a": "http://www.w3.org/2005/Atom"}
     root = ET.fromstring(xml.encode("utf-8"))
-    assert root.tag == "{http://www.w3.org/2005/Atom}feed", "feed.xml: root is not atom:feed"
+    need(root.tag == "{http://www.w3.org/2005/Atom}feed", "root is not atom:feed")
     for t in ("id", "title", "updated"):
-        assert root.find(f"a:{t}", ns) is not None and (root.find(f"a:{t}", ns).text or "").strip(), f"feed.xml: missing feed {t}"
+        need(root.find(f"a:{t}", ns) is not None and (root.find(f"a:{t}", ns).text or "").strip(), f"missing feed {t}")
     has_author = root.find("a:author/a:name", ns) is not None
     ids = set()
     for e in root.findall("a:entry", ns):
         for t in ("id", "title", "updated"):
-            assert (e.find(f"a:{t}", ns) is not None) and (e.find(f"a:{t}", ns).text or "").strip(), f"feed.xml: entry lacks {t}"
-        assert e.find("a:link[@rel='alternate']", ns) is not None, "feed.xml: entry lacks link rel=alternate"
-        assert has_author or e.find("a:author/a:name", ns) is not None, "feed.xml: entry lacks an author"
+            need((e.find(f"a:{t}", ns) is not None) and (e.find(f"a:{t}", ns).text or "").strip(), f"entry lacks {t}")
+        need(e.find("a:link[@rel='alternate']", ns) is not None, "entry lacks link rel=alternate")
+        need(has_author or e.find("a:author/a:name", ns) is not None, "entry lacks an author")
         i = e.find("a:id", ns).text
-        assert i not in ids, f"feed.xml: duplicate entry id {i}"
+        need(i not in ids, f"duplicate entry id {i}")
         ids.add(i)
 
 

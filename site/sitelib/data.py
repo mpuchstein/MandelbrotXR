@@ -294,6 +294,14 @@ def _json(repo: str, rel: str):
         raise DataError(f"{rel}: invalid JSON ({e})") from None
 
 
+def _image_size(repo: str, rel: str) -> tuple[int, int]:
+    full = os.path.join(repo, rel)
+    try:
+        return img.size(full)
+    except ValueError as e:
+        raise DataError(f"{rel}: {str(e).removeprefix(full + ': ')}") from None
+
+
 _FILES: dict[str, frozenset] = {}
 
 
@@ -508,13 +516,20 @@ def product_facts(data: bytes) -> tuple[list[str], int]:
 # ---------------------------------------------------------------- git
 
 def git(repo: str, *args: str) -> str:
-    return subprocess.run(["git", "-C", repo, *args], check=True, capture_output=True, text=True).stdout
+    try:
+        return subprocess.run(["git", "-C", repo, *args], check=True, capture_output=True, text=True).stdout
+    except (OSError, subprocess.CalledProcessError) as e:
+        raise DataError(f"{repo}: git {' '.join(args)} failed: {(getattr(e, 'stderr', None) or str(e)).strip()}") from None
 
 
 def git_info(repo: str) -> dict:
     """Commit SHA (+ '-dirty'), commit date and shallow handling. Never uses the wall clock."""
     if git(repo, "rev-parse", "--is-shallow-repository").strip() == "true":
-        subprocess.run(["git", "-C", repo, "fetch", "--unshallow"], check=True)
+        try:
+            subprocess.run(["git", "-C", repo, "fetch", "--unshallow"], check=True)
+        except (OSError, subprocess.CalledProcessError) as e:
+            raise DataError(f"{repo}: shallow clone, and 'git fetch --unshallow' failed ({e}); "
+                            "the changelog and the feed need the full history") from None
     sha = git(repo, "rev-parse", "HEAD").strip()
     dirty = bool(git(repo, "status", "--porcelain").strip())
     iso = git(repo, "log", "-1", "--format=%cI", "HEAD").strip()
@@ -640,7 +655,7 @@ def load(repo: str) -> Model:
             for n in _listdir(repo, f"{d}/screenshots"):
                 if n.lower().endswith((".png", ".jpg", ".jpeg")):
                     p = f"{d}/screenshots/{n}"
-                    w, h = img.size(os.path.join(repo, p))
+                    w, h = _image_size(repo, p)
                     s = Shot(p, "review", r.key, f"{tlabel} review", c.slug, w, h, _caption(md, n))
                     r.shots.append(s)
                     c.shots.append(s)
@@ -699,7 +714,7 @@ def load(repo: str) -> Model:
                 if lm.group(1) not in mapping:
                     fail(p, f"screenshot prefix {lm.group(1)!r} is not a letter in {mpath}[{jid!r}]")
                 slug = mapping[lm.group(1)]
-            w, h = img.size(os.path.join(repo, p))
+            w, h = _image_size(repo, p)
             s = Shot(p, "judge", jid, f"{j.label} judge", slug, w, h, _caption(md, n))
             j.shots.append(s)
             if slug:
@@ -721,8 +736,10 @@ def load(repo: str) -> Model:
         md = _read(repo, files["REVIEW.md"]) if "REVIEW.md" in files else ""
         shots = []
         for n in _listdir(repo, f"{d}/screenshots"):
+            if not n.lower().endswith((".png", ".jpg", ".jpeg")):
+                continue
             p = f"{d}/screenshots/{n}"
-            w, h = img.size(os.path.join(repo, p))
+            w, h = _image_size(repo, p)
             shots.append(Shot(p, "discarded", sub, "Discarded run", None, w, h, _caption(md, n)))
         discarded.append({"id": sub, "dir": d, "files": files, "shots": shots, "md": md})
 

@@ -149,7 +149,7 @@ def md_link(site: Site, src_path: str):
             return None
         path, _, frag = href.partition("#")
         target = posixpath.normpath(posixpath.join(base, unquote(path))) if path else src_path
-        if target.startswith(".."):
+        if target.startswith(("..", "/")):  # outside the repo, or an absolute path on someone's machine
             return None
         if not os.path.exists(os.path.join(site.repo, target)):
             return site.gh(target) + (f"#{frag}" if frag else "")
