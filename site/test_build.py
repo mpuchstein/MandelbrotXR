@@ -216,13 +216,13 @@ def test_validation(tmp: str) -> None:
     expect_failure(repo, "missing from Judge/judge-mapping.json", "Judge/HTML-Judge/RANKING.md")
     open(J, "w", encoding="utf-8").write(old)
     # a candidate in a ranking but not in candidates.toml
+    old = edit(J, lambda s: json.dumps({k: ({**m, "A": {**m["A"], "name": "Unknown-Model-v1"}} if k == "html" else m) for k, m in json.loads(s).items()}))
+    expect_failure(repo, "candidate in a ranking but not in site/candidates.toml", "Judge/judge-mapping.json")
+    open(J, "w", encoding="utf-8").write(old)
+    # a source_url that disagrees with the transcript header
     T = os.path.join(repo, "site/candidates.toml")
-    old = edit(T, lambda s: s.replace('folder = "Mistral-VibeCode-MistralLarge4-Default-v1"', 'folder = "Mistral-Renamed-v1"'))
-    try:
-        data.load(repo)
-        raise AssertionError("expected a DataError for a candidate missing from candidates.toml")
-    except data.DataError as e:
-        assert "candidates.toml" in str(e), e
+    old = edit(T, lambda s: s.replace("https://claude.ai/chat/09e85d21-ad05-4fe0-b10d-8ef14cc23da7", "https://claude.ai/chat/wrong", 1))
+    expect_failure(repo, "differs from the '- Source:' line", "site/candidates.toml")
     open(T, "w", encoding="utf-8").write(old)
     # an unparsable score
     R = os.path.join(repo, "Review/HTML-Review/OpenAI-Web-GPT6-Pro-v0/REVIEW.md")

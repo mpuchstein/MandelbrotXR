@@ -265,15 +265,16 @@ def check_keyboard(page, base: str, a: str, b: str, judge_url: str) -> str:
     page.keyboard.press("Space")
     check(page.get_attribute("#rank-heat", "aria-pressed") == "true", "keyboard: heatmap toggle failed")
     done.append("heatmap")
-    sel = page.locator("#rank-controls select, #rank-controls input").first
-    tag = sel.evaluate("e => e.tagName.toLowerCase() + (e.type ? ':' + e.type : '')")
-    sel.focus()
-    if tag.startswith("select"):
-        page.keyboard.press("ArrowDown")
-    else:
-        page.keyboard.press("Space")
-    page.wait_for_timeout(50)
-    check("=" in urllib.parse.unquote(page.evaluate("location.hash")), "keyboard: filter did not change the view state")
+    radios = page.eval_on_selector_all("#rank-controls input[type=radio]", "rs => rs.map(r => r.name + '=' + r.value)")
+    check(radios, "keyboard: no filter controls")
+    for name in sorted({r.split("=")[0] for r in radios}):
+        page.goto(base + "rankings/")
+        tab_to(f'#rank-controls input[type=radio][name="{name}"]:checked')
+        page.keyboard.press("ArrowRight")  # radio groups: arrow keys move and select
+        page.wait_for_timeout(50)
+        h = urllib.parse.unquote(page.evaluate("location.hash"))
+        hidden = page.evaluate("() => document.querySelectorAll('#rank-matrix tr[hidden], #rank-matrix th[hidden], #rank-matrix td[hidden]').length")
+        check("=" in h and hidden > 0, f"keyboard: filter {name} did not filter the matrix (hash {h!r}, {hidden} hidden cells)")
     done.append("filters")
 
     page.goto(base + judge_url)
@@ -290,15 +291,30 @@ def check_keyboard(page, base: str, a: str, b: str, judge_url: str) -> str:
 
     page.goto(base + "compare/")
     tab_to("select")
+    page.keyboard.press("ArrowDown")  # stepping through options must not navigate away
+    check(page.url.rstrip("/").endswith("compare"), "keyboard: changing a compare select navigated before submitting")
+    page.keyboard.press("Tab")
     page.keyboard.press("ArrowDown")
-    page.wait_for_timeout(300)
+    page.keyboard.press("ArrowDown")
+    tab_to("form button[type=submit], form input[type=submit]")
+    page.keyboard.press("Enter")
+    page.wait_for_url(re.compile(r"compare/[a-z0-9-]+-vs-[a-z0-9-]+/"), timeout=5000)
     done.append("compare")
     return ", ".join(done)
 
 
 # ---------------------------------------------------------------- screenshots
 
-def screenshot_targets(model) -> list[tuple[str, str]]:
+def _second_part(out: str) -> str:
+    """URL of page 2 of the first paginated transcript in the build."""
+    root = os.path.join(out, "transcripts")
+    for tid in sorted(os.listdir(root)) if os.path.isdir(root) else []:
+        if os.path.exists(os.path.join(root, tid, "2", "index.html")):
+            return f"transcripts/{tid}/2/"
+    return "transcripts/"
+
+
+def screenshot_targets(model, out: str) -> list[tuple[str, str]]:
     """(name, root-relative URL) — one representative page per page type."""
     order = model.ordered()
     c0, c1 = order[0], order[-1]
@@ -310,13 +326,13 @@ def screenshot_targets(model) -> list[tuple[str, str]]:
         ("compare", "compare/"), ("compare-pair", f"compare/{c0.slug}-vs-{c1.slug}/"), ("techniques", "techniques/"),
         ("judges", "judges/"), ("judge", f"judges/{j.id.replace('_', '-')}/"), ("reviews", "reviews/"),
         ("review", f"reviews/{r.type_id.replace('_', '-')}/{r.slug}/"), ("transcripts", "transcripts/"),
-        ("transcript", f"transcripts/{transcript_id(c0.transcription)}/"), ("source", "source/Judge/README.md.html"),
+        ("transcript", f"transcripts/{transcript_id(c0.transcription)}/"), ("transcript-part", _second_part(out)), ("source", "source/Judge/README.md.html"),
         ("methodology", "methodology/"), ("data", "data/"), ("changelog", "data/changelog/"),
         ("search", "search/?q=perturbation"),
     ]
 
 
-def take_screenshots(browser, base: str, model, dest: str, max_height: int) -> int:
+def take_screenshots(browser, base: str, model, dest: str, max_height: int, dest_out: str) -> int:
     """PNG per page type at 390×844 and 1440×900 in light and dark, capped at max_height px."""
     os.makedirs(dest, exist_ok=True)
     n = 0
@@ -324,7 +340,7 @@ def take_screenshots(browser, base: str, model, dest: str, max_height: int) -> i
         for w, h in ((390, 844), (1440, 900)):
             ctx = browser.new_context(viewport={"width": w, "height": h}, color_scheme=theme, reduced_motion="reduce")
             page = ctx.new_page()
-            for name, url in screenshot_targets(model):
+            for name, url in screenshot_targets(model, dest_out):
                 page.goto(base + url, wait_until="load")
                 if name == "search":
                     page.wait_for_function("document.querySelectorAll('#search-results li').length > 0", timeout=15000)
@@ -366,7 +382,7 @@ def main(argv=None) -> int:
     if a.screenshots:
         with serve(out) as base, sync_playwright() as p:
             browser = p.chromium.launch(args=CHROMIUM_ARGS)
-            n = take_screenshots(browser, base, model, os.path.abspath(a.screenshots), a.max_height)
+            n = take_screenshots(browser, base, model, os.path.abspath(a.screenshots), a.max_height, out)
             browser.close()
         print(f"wrote {n} screenshots to {a.screenshots}")
         return 0
