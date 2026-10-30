@@ -19,11 +19,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from itertools import combinations
 
-try:
-    from . import img
-except ImportError:  # TEMP(dev): img.py is still being written by another agent; remove before release
-    import types as _t
-    img = _t.SimpleNamespace(size=lambda p: (1280, 800))
+from . import img
 
 
 class DataError(Exception):
