@@ -6,7 +6,7 @@ source/<dir>/        a listing for every directory
 source/index.html    the whole tree
 
 Not rendered here: transcripts (transcripts/…), product HTML (play/<slug>/ is the byte-identical copy),
-images (media/…), and anything under .git, other dot-directories, site/ and __pycache__/.
+images (media/…), and anything under .git, other dot-directories, __pycache__/ and site/ (except site/*.md and site/*.toml).
 """
 from __future__ import annotations
 
@@ -20,7 +20,8 @@ from ..layout import Site, esc
 ORDER = 750
 
 IMAGE_EXT = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico")
-SKIP_DIRS = {"__pycache__", "site", "node_modules"}
+SKIP_DIRS = {"__pycache__", "node_modules"}
+SITE_DOCS = (".md", ".toml")  # from site/ only its top-level documents (brief, README, DEPLOY, candidates.toml)
 
 
 def walk(repo: str) -> tuple[list[str], list[str]]:
@@ -29,11 +30,12 @@ def walk(repo: str) -> tuple[list[str], list[str]]:
     for dirpath, dirnames, filenames in os.walk(repo):
         rel = os.path.relpath(dirpath, repo).replace(os.sep, "/")
         rel = "" if rel == "." else rel
-        dirnames[:] = sorted(d for d in dirnames if not d.startswith(".") and not (d in SKIP_DIRS and (d != "site" or not rel)))
+        in_site = rel == "site"
+        dirnames[:] = [] if in_site else sorted(d for d in dirnames if not d.startswith(".") and d not in SKIP_DIRS)
         for d in dirnames:
             dirs.append(posixpath.join(rel, d))
         for n in sorted(filenames):
-            if n.endswith((".pyc", ".pyo")) or n in (".DS_Store",):
+            if n.endswith((".pyc", ".pyo")) or n in (".DS_Store",) or (in_site and not n.endswith(SITE_DOCS)):
                 continue
             files.append(posixpath.join(rel, n))
     return sorted(dirs), sorted(files)
@@ -178,7 +180,7 @@ def build(site: Site) -> None:
             'line anchors (<code>#L&lt;n&gt;</code>); transcripts open in the <a href="@/transcripts/">transcript reader</a>, '
             'products open in their byte-identical <code>play/</code> copy, and images are copied unchanged.</p>'
             '<p class="note">Each page links to the same file on GitHub at the build commit. Build tooling caches '
-            '(<code>__pycache__/</code>), the site generator (<code>site/</code>) and dot-directories are not listed.</p>'
+            '(<code>__pycache__/</code>), the site generator code and output under <code>site/</code> (only its documents are listed) and dot-directories are not listed.</p>'
             '<h2>Repository root</h2>' + listing("") +
             '<h2>Full tree</h2>' + f'<div class="src-tree">{tree("")}</div>')
     site.page("source/index.html", "Source files", body, section="transcripts", crumbs=[("Source files", "")],
