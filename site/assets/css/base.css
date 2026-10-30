@@ -119,7 +119,7 @@ mark { background: var(--mark-bg); color: var(--mark-fg); padding: 0 .1em; borde
 .site-header .bar { max-width: 76rem; margin: 0 auto; padding: var(--space-2) var(--space-3); display: flex; align-items: center; gap: var(--space-3); justify-content: space-between; }
 .brand { font-weight: 700; color: var(--fg); text-decoration: none; display: inline-flex; align-items: center; gap: var(--space-2); }
 .brand-sub { color: var(--muted); font-weight: 500; }
-.brand-mark { width: 20px; height: 20px; flex: none; background: var(--accent); -webkit-mask: url("favicon.svg") center / contain no-repeat; mask: url("favicon.svg") center / contain no-repeat; }
+.brand-mark { width: 20px; height: 20px; flex: none; background: var(--accent); -webkit-mask: url("mark.svg") center / contain no-repeat; mask: url("mark.svg") center / contain no-repeat; }
 .site-nav ul { list-style: none; margin: 0 auto; padding: 0 var(--space-3); display: flex; gap: var(--space-1); overflow-x: auto; max-width: 76rem; scrollbar-width: thin; scroll-padding-inline: var(--space-5); }
 /* header shares the content column's left/right edges (main: 76rem, 24px inset; nav links carry 16px padding) */
 @media (min-width: 48rem) { .site-header .bar { padding-inline: var(--space-4); } .site-nav ul { padding-inline: var(--space-2); } }
