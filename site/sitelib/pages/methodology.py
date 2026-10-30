@@ -628,7 +628,18 @@ def sec_environment(site: Site, srcs: dict[str, Src]) -> str:
     return "".join(out)
 
 
-def incident_evidence(site: Site, src_path: str, text: str) -> list[str]:
+def evidence_index(site: Site) -> list[str]:
+    """Every directory and file under ReviewOrchestrator/ and Judge/, for incident_evidence()."""
+    index = []
+    for top in (RO, "Judge"):
+        for dp, dn, fn in os.walk(os.path.join(site.repo, top)):
+            dn[:] = sorted(d for d in dn if d != "__pycache__" and not d.startswith("."))
+            rel = os.path.relpath(dp, site.repo).replace(os.sep, "/")
+            index += [f"{rel}/{d}" for d in dn] + [f"{rel}/{f}" for f in sorted(fn)]
+    return index
+
+
+def incident_evidence(site: Site, src_path: str, text: str, index: list[str]) -> list[str]:
     """Evidence links discovered in an incident's text: repo paths in backticks, blind ids,
     judges and discarded runs it names."""
     m = site.model
@@ -640,12 +651,6 @@ def incident_evidence(site: Site, src_path: str, text: str) -> list[str]:
             seen.add(key)
             links.append(htmls)
 
-    index = []
-    for top in (RO, "Judge"):
-        for dp, dn, fn in os.walk(os.path.join(site.repo, top)):
-            dn[:] = sorted(d for d in dn if d != "__pycache__" and not d.startswith("."))
-            rel = os.path.relpath(dp, site.repo).replace(os.sep, "/")
-            index += [f"{rel}/{d}" for d in dn] + [f"{rel}/{f}" for f in sorted(fn)]
     for tok in re.findall(r"`([^`\n]+)`", text):
         t = tok.strip().rstrip("/")
         if not t or re.search(r"[\s()=:~*<>]", t):
@@ -714,6 +719,7 @@ def sec_incidents(site: Site, srcs: dict[str, Src]) -> tuple[str, int]:
     ids = set()
     rendered = 0
     nav = []
+    index = evidence_index(site)
     for path, items in groups.items():
         parts.append(f'<h3>{esc(path)} · “{esc(items[0]["heading"])}”</h3>')
         for inc in items:
@@ -723,7 +729,7 @@ def sec_incidents(site: Site, srcs: dict[str, Src]) -> tuple[str, int]:
                 iid = f'{inc["id"]}-{k}'
                 k += 1
             ids.add(iid)
-            ev = incident_evidence(site, path, inc["raw"])
+            ev = incident_evidence(site, path, inc["raw"], index)
             ev += [f'<a href="#{k}">{esc(lab)} section on this page</a>' for k, lab in TOC
                    if k not in ("incidents", "caveats") and re.search(rf"\b{k}", inc["title"].lower())]
             ev_html = ("<ul class=\"inc-ev\">" + "".join(f"<li>{e}</li>" for e in ev) + "</ul>") if ev else ""

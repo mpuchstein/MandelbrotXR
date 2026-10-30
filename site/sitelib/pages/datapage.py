@@ -463,7 +463,7 @@ def data_page(site: Site, files: dict[str, bytes], commits: list[dict]) -> None:
     rec_html = ""
     if recent:
         latest = recent[0]["date"]
-        same = [e for e in recent if e["date"] == latest]
+        same = [e for e in recent if e["date"][:10] == latest[:10]]  # the day shown, not only the newest commit
         rec_html = (f'<p>Latest: {len(same)} judgment{"s" if len(same) != 1 else ""} added on {_date(latest)}. '
                     f'{len(recent)} in total since the first commit.</p>')
     body = f"""<header class="data-head"><h1>Data</h1>
