@@ -86,7 +86,8 @@ def standing_html(m: Model, c: Candidate) -> str:
     """'1 (tie)' style label of a candidate's place by mean rank."""
     st = m.standing().get(c.slug)
     if not st:
-        return '<span class="muted">unranked</span>'
+        n, total = m.coverage(c.slug)
+        return f'<span class="muted">ranked by {n} of {total} judges</span>'
     place, tied = st
     return f"{place}" + (' <span class="tie" title="tied on mean rank">(tie)</span>' if tied else "")
 

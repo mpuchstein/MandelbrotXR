@@ -200,24 +200,30 @@ class Model:
         mu = sum(r) / len(r)
         return min(r), max(r), math.sqrt(sum((x - mu) ** 2 for x in r) / len(r))
 
+    def coverage(self, slug: str) -> tuple[int, int]:
+        """(judges that ranked this candidate, total judges)."""
+        return len(self.ranks(slug)), len(self.judges)
+
+    def full(self, slug: str) -> bool:
+        """Ranked by every judge (only then is its mean rank comparable to the others')."""
+        n, total = self.coverage(slug)
+        return total > 0 and n == total
+
     def ordered(self) -> list[Candidate]:
-        """Candidates by mean rank (unranked last). Ties keep the order of the first judge's
-        ranking, then candidates.toml order — the same order Judge/README.md shows."""
+        """Candidates by mean rank. Candidates not ranked by every judge come after those that
+        were (their means are not comparable), unranked ones last. Ties keep the order of the
+        first judge's ranking, then candidates.toml order — the order Judge/README.md shows."""
         first = self.judges[0].rank if self.judges else {}
         def key(c: Candidate):
             m = self.mean_rank(c.slug)
-            return (m is None, m or 0, first.get(c.slug, 10**6), c.index)
+            return (m is None, not self.full(c.slug), m or 0, first.get(c.slug, 10**6), c.index)
         return sorted(self.candidates, key=key)
 
     def standing(self) -> dict[str, tuple[int, bool]]:
-        """slug -> (competition rank by mean rank, tied?). Unranked candidates are absent."""
-        means = {c.slug: self.mean_rank(c.slug) for c in self.candidates}
-        vals = [m for m in means.values() if m is not None]
-        out = {}
-        for s, m in means.items():
-            if m is not None:
-                out[s] = (1 + sum(1 for v in vals if v < m), sum(1 for v in vals if v == m) > 1)
-        return out
+        """slug -> (competition rank by mean rank, tied?), among candidates ranked by every judge."""
+        means = {c.slug: self.mean_rank(c.slug) for c in self.candidates if self.full(c.slug)}
+        vals = list(means.values())
+        return {s: (1 + sum(1 for v in vals if v < m), sum(1 for v in vals if v == m) > 1) for s, m in means.items()}
 
     def kendall(self, a: Judge, b: Judge) -> tuple[float | None, int]:
         """Kendall tau-b between two judges over the candidates both ranked, and that count."""
