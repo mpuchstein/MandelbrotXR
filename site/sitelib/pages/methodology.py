@@ -94,8 +94,18 @@ class Src:
                     if re.match(r"^##\s", l2):
                         break
                     body.append(l2)
-                return m.group(1), i + 2, "\n".join(body).strip("\n")
+                # the body is returned without its leading blank lines: the first line number must skip them too
+                lead = next((k for k, l2 in enumerate(body) if l2.strip()), len(body))
+                return m.group(1), i + 2 + lead, "\n".join(body[lead:]).rstrip("\n")
         raise DataError(f"{self.path}: no '## ' section matching {pattern!r}")
+
+    def heading_line(self, heading: str) -> int:
+        """Line number of the '## ' heading whose text is exactly heading (as returned by section())."""
+        for i, l in enumerate(self.lines):
+            m = re.match(r"^##\s+(.*?)\s*$", l)
+            if m and m.group(1) == heading:
+                return i + 1
+        raise DataError(f"{self.path}: no '## {heading}' heading")
 
     def sentence(self, phrase: str) -> tuple[str, int]:
         """The full sentence (Markdown, verbatim) containing phrase, and its line number."""
@@ -115,6 +125,20 @@ class Src:
 
     def ev(self, label: str | None = None, line: int | None = None) -> str:
         return self.site.evidence(self.path, label or self.path, anchor=f"#L{line}" if line else "", line=line)
+
+
+def _secno(head: str) -> str:
+    """'2. Steps' -> '§2 “Steps”' (the section number as written in the heading)."""
+    m = re.match(r"(\d+)\.\s*(.*)", head)
+    return f"§{m.group(1)} “{m.group(2)}”" if m else f"“{head}”"
+
+
+_WORDS = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve")
+
+
+def _word(n: int) -> str:
+    """A count for prose: spelled out up to twelve, digits above (always derived, never hardcoded)."""
+    return _WORDS[n] if 0 <= n < len(_WORDS) else str(n)
 
 
 def clink(c) -> str:
@@ -328,7 +352,7 @@ def sec_pipeline(site: Site, srcs: dict[str, Src]) -> str:
     ro = srcs[RO_README]
     head, ln, body = ro.section(r"^\d+\.\s*Steps")
     return (f'<p>The process ran in {len(stages)} stages. Each box names the scripts that implemented it (linked to their source) and what it wrote to the repository. '
-            f'The step-by-step account is {ro.ev("ReviewOrchestrator/README.md §2 “Steps”", ln - 1)}; extraction itself was done by the orchestrator in the browser, '
+            f'The step-by-step account is {ro.ev(f"ReviewOrchestrator/README.md {_secno(head)}", ro.heading_line(head))}; extraction itself was done by the orchestrator in the browser, '
             f'with <code>claude2md.py</code> only for the claude.ai conversation exports.</p>'
             f'<figure class="pipeline-fig"><div class="pipeline-wrap">{pipeline_svg(site, stages, False)}{pipeline_svg(site, stages, True)}</div>'
             f'<figcaption class="small muted">Text equivalent of the diagram:</figcaption></figure>'
@@ -353,11 +377,11 @@ def sha_lists(site: Site) -> dict[str, dict[str, str]]:
 def sec_blinding(site: Site, srcs: dict[str, Src]) -> str:
     m = site.model
     ro, jr = srcs[RO_README], srcs[J_README]
-    _, ln, body = ro.section(r"^\d+\.\s*Steps")
+    head, ln, body = ro.section(r"^\d+\.\s*Steps")
     steps = list_items(body, ln)
     blind_step = next((s for s in steps if "blind" in s["text"].lower() and "shuffled" in s["text"].lower()), None)
     if blind_step is None:
-        raise DataError(f"{RO_README}: no step describing the blind shuffle found in §2")
+        raise DataError(f"{RO_README}: no step describing the blind shuffle found in “{head}”")
     plan = srcs.get(f"{RO}/PLAN.md")
 
     # phase-1 table
@@ -431,7 +455,7 @@ def sec_blinding(site: Site, srcs: dict[str, Src]) -> str:
     return (
         '<h3>Phase 1: candidate-NN</h3>'
         + quote(site, ro, blind_step["text"], blind_step["line"], block=True,
-                label=f"ReviewOrchestrator/README.md §2, step {blind_step['num']}")
+                label=f"ReviewOrchestrator/README.md {_secno(head)}, step {blind_step['num']}")
         + seed_q
         + '<p>Reviewers saw only the blind id. The HTML reviewers read the copy named <code>index.html</code>; the transcript reviewers read the anonymized transcript linked in the last column.</p>'
         + t1
@@ -493,13 +517,13 @@ def _ports(site: Site, path: str) -> list[tuple[str | None, str]]:
 def sec_serving(site: Site, srcs: dict[str, Src]) -> str:
     m = site.model
     ro, jr = srcs[RO_README], srcs[J_README]
-    _, ln, body = ro.section(r"^\d+\.\s*Steps")
+    head, ln, body = ro.section(r"^\d+\.\s*Steps")
     steps = list_items(body, ln)
     serve_step = next((s for s in steps if "http.server" in s["text"]), None)
     out = []
     if serve_step:
         out.append(quote(site, ro, serve_step["text"], serve_step["line"], block=True,
-                         label=f"ReviewOrchestrator/README.md §2, step {serve_step['num']}"))
+                         label=f"ReviewOrchestrator/README.md {_secno(head)}, step {serve_step['num']}"))
     out.append(quote_sentence(site, ro, "every candidate had its own port"))
 
     # phase-1 browser reviews: port from each PROMPT.txt
@@ -916,8 +940,8 @@ def sec_reproduce(site: Site, srcs: dict[str, Src]) -> str:
         if t.endswith(".py"):
             p = f"{TOOLS}/{t}"
             rows.append(f'<tr><th scope="row">{site.evidence(p, t)}</th><td>{esc(stage_of.get(t, "–"))}</td><td>{esc(docstring(site, p))}</td></tr>')
-    return (f'<p>From {ro.ev(f"ReviewOrchestrator/README.md “{head}”", ln - 1)}, verbatim:</p>'
-            f'<blockquote class="quote">{render_md(site, RO_README, text=body, heading_ids=False)}<cite>{ro.ev(f"{RO_README}, line {ln - 1}", ln - 1)}</cite></blockquote>'
+    return (f'<p>From {ro.ev(f"ReviewOrchestrator/README.md “{head}”", ro.heading_line(head))}, verbatim:</p>'
+            f'<blockquote class="quote">{render_md(site, RO_README, text=body, heading_ids=False)}<cite>{ro.ev(f"{RO_README}, line {ln}", ln)}</cite></blockquote>'
             f'<p>All tools: {site.evidence(TOOLS, TOOLS + "/")}. The first line of each docstring, verbatim:</p>'
             '<div class="table-wrap"><table class="meth-table"><thead><tr><th scope="col">Tool</th><th scope="col">Stage</th>'
             f'<th scope="col">Docstring</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
@@ -952,7 +976,7 @@ def build(site: Site) -> None:
     toc = "".join(f'<li><a href="#{k}">{esc(labels[k])}</a></li>' for k, _ in TOC)
     body = [
         '<header class="meth-head"><h1>Methodology</h1>'
-        '<p class="lede">How the eight products were collected, blinded, reviewed, judged and aggregated, '
+        f'<p class="lede">How the {_word(len(site.model.candidates))} products were collected, blinded, reviewed, judged and aggregated, '
         'what went wrong along the way, and what the numbers on this site can and cannot tell you. '
         'Wherever possible this page quotes the process record instead of summarising it.</p></header>',
         f'<nav class="meth-toc" aria-label="On this page"><h2 class="toc-h">On this page</h2><ol>{toc}</ol></nav>',

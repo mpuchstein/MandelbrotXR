@@ -14,8 +14,6 @@
   const indexBase = form.dataset.index || "search-index/";
   const root = form.dataset.root || "";
   const PAGE = 50, K1 = 1.2, B = 0.75, MAX_EXPANSIONS = 64, VERIFY_SHARDS = 4, EAGER = 12;
-  const nojs = $("search-nojs");
-  if (nojs) nojs.hidden = true;
   const cache = new Map(), postingsCache = new Map(), titleCache = new Map();
   let meta, docs, lens, avgdl, stop = new Set(), gen = 0, state = null, timer = 0;
 

@@ -6,7 +6,7 @@ module writes the page with search.js's client contract:
   <form id="search-form" data-index="…/search-index/" data-root="…/"> with <input id="q" name="q">,
   #search-kinds (kind filters, filled by the script), #search-status (aria-live) and #search-results.
 Without JavaScript the form still submits (GET ?q=…) and the page explains where to browse instead;
-search.js hides that note (#search-nojs) as soon as it starts.
+that note (#search-nojs) is hidden by CSS when JS runs (html.js, set in <head> by theme.js), so nothing shifts.
 """
 from __future__ import annotations
 

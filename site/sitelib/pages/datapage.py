@@ -118,7 +118,7 @@ def results(site: Site) -> dict:
     return {
         "schema": SCHEMA_ID,
         "build": {"commit": g["version"], "sha": g["sha"], "dirty": g["dirty"], "date": g["date_iso"],
-                  "base_url": site.base_url, "github": f"{GITHUB}/tree/{g['sha']}"},
+                  "github": f"{GITHUB}/tree/{g['sha']}"},
         "candidates": cands,
         "review_types": [{"id": t, "folder": f, "label": l} for t, f, l in m.review_types],
         "reviews": reviews,
@@ -148,7 +148,7 @@ RESULTS_SCHEMA = [  # (field, type, meaning, derived?)
     ("build.commit", "string", "Build commit SHA (<code>git rev-parse HEAD</code>), with <code>-dirty</code> appended if the working tree had uncommitted changes.", False),
     ("build.sha / build.dirty", "string / boolean", "The bare commit SHA and whether the tree was dirty.", False),
     ("build.date", "string", "Commit date of the build commit (ISO 8601). Never the wall clock.", False),
-    ("build.base_url / build.github", "string", "Absolute site URL the build was made for, and the GitHub tree at the build commit.", False),
+    ("build.github", "string", "The GitHub tree at the build commit.", False),
     ("candidates[]", "array", "One object per entry of <code>site/candidates.toml</code>, in file order.", False),
     ("candidates[].slug, folder, name, label", "string", "URL slug, top-level repo folder, display name, short table label.", False),
     ("candidates[].vendor, product, model, effort, provenance", "string", "As recorded in <code>site/candidates.toml</code> (from the transcript headers and ReviewOrchestrator/README.md §1).", False),
@@ -410,6 +410,14 @@ def changelog_page(site: Site, commits: list[dict], shallow: bool) -> None:
                     " ".join(f'{cm["subject"]}. ' + " ".join(e["title"] for e in cm["entries"]) for cm in commits))
 
 
+_WORDS = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve")
+
+
+def _word(n: int) -> str:
+    """A count for prose: spelled out up to twelve, digits above (always derived, never hardcoded)."""
+    return _WORDS[n] if 0 <= n < len(_WORDS) else str(n)
+
+
 def data_page(site: Site, files: dict[str, bytes], commits: list[dict]) -> None:
     m, g = site.model, site.git
     tree = f"{GITHUB}/tree/{g['sha']}"
@@ -455,7 +463,7 @@ def data_page(site: Site, files: dict[str, bytes], commits: list[dict]) -> None:
         rec_html = (f'<p>Latest: {len(same)} judgment{"s" if len(same) != 1 else ""} added on {_date(latest)}. '
                     f'{len(recent)} in total since the first commit.</p>')
     body = f"""<header class="data-head"><h1>Data</h1>
-<p class="lede">The complete results as machine-readable files: one JSON export with everything and three flat CSV tables.
+<p class="lede">The complete results as machine-readable files: one JSON export with everything and {_word(sum(1 for n in files if n.endswith(".csv")))} flat CSV tables.
 They are generated from the repository at commit <a href="{GITHUB}/commit/{g['sha']}" rel="noopener"><code>{esc(g['version'][:12])}</code></a>
 ({_date(g['date_iso'])}) by the same build that writes this site, so every number here equals the one on the pages.</p></header>
 <section class="data-sec" aria-labelledby="files"><h2 id="files">Files</h2>

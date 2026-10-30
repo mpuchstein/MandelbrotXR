@@ -5,7 +5,11 @@
 .reveal-scope .reveal-label { display: none; }
 .reveal-scope.is-revealed .reveal-label { display: inline; }
 .reveal-scope.is-revealed .blind-label { display: none; }
-.reveal-scope.has-js .nojs-only { display: none; }
+html.js .nojs-only { display: none; }
+/* content naming candidates: hidden in the blind view only when JS can reveal it; the note stands in for it */
+html.js .reveal-scope:not(.is-revealed) .reveal-only { display: none; }
+.reveal-scope.is-revealed .blind-note { display: none; }
+.blind-note { margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); border: 1px dashed var(--border-strong); border-radius: var(--radius); max-width: var(--measure); }
 .reveal-scope.is-revealed .reveal-label a,
 .reveal-scope.is-revealed .jr-h1-reveal { background: var(--accent-soft); border-radius: var(--radius-sm); }
 .reveal-bar {
@@ -13,7 +17,6 @@
   margin: 0 0 var(--space-3); padding: var(--space-2) 0; background: var(--bg); border-bottom: 1px solid var(--border);
 }
 .reveal-bar .reveal-status { margin: 0; color: var(--muted); }
-.reveal-btn[hidden] { display: none; }
 .reveal-icon { width: 16px; height: 12px; border: 2px solid currentColor; border-radius: 50% / 60%; position: relative; flex: none; }
 .reveal-icon::after { content: ""; position: absolute; inset: 0; margin: auto; width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
 .reveal-btn[aria-pressed="false"] .reveal-icon::before {
@@ -58,12 +61,9 @@ td.jr-cand, .jr-nowrap { white-space: nowrap; }
 .jr-judges td, .jr-judges th { min-width: 112px; }
 .jr-judges td:nth-child(2), .jr-judges td:nth-child(3) { min-width: 208px; }
 .jr-matrix thead th.num { text-align: center; min-width: 88px; }
-.jr-matrix td.jr-score { position: relative; text-align: center; vertical-align: middle; font-weight: 700; padding: 0; background: var(--hb); color: var(--hf); }
-.jr-swatch { display: inline-block; min-width: 28px; text-align: center; font-size: var(--text-xs); font-weight: 700; font-variant-numeric: tabular-nums; background: var(--hb); color: var(--hf); }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .jr-matrix td.jr-score, :root:not([data-theme="light"]) .jr-swatch { background: var(--hbd); color: var(--hfd); }
-}
-:root[data-theme="dark"] .jr-matrix td.jr-score, :root[data-theme="dark"] .jr-swatch { background: var(--hbd); color: var(--hfd); }
+/* cell colours come inline from fragments.score_heat() (theme-aware --heat-k tokens) */
+.jr-matrix td.jr-score { position: relative; text-align: center; vertical-align: middle; font-weight: 700; padding: 0; }
+.jr-swatch { display: inline-block; min-width: 24px; text-align: center; font-size: var(--text-xs); font-weight: 700; font-variant-numeric: tabular-nums; }
 .jr-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); color: var(--muted); margin: 0 0 var(--space-2); }
 .jr-swatches { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
 .jr-bid { display: none; }

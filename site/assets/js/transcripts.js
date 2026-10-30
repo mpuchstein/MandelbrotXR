@@ -86,7 +86,6 @@
     }
     const tools = document.querySelector("[data-tx-tools]");
     if (tools) {
-      tools.hidden = false;
       tools.addEventListener("click", (e) => {
         const b = e.target.closest("button[data-fold]");
         if (!b) return;

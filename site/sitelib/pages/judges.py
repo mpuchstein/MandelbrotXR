@@ -4,7 +4,9 @@ reviews/<type>/<slug>/ (one per phase-1 review).
 Every judge page has a Blind/Reveal toggle (assets/js/reveal.js): both the letter the judge saw and the
 revealed candidate are rendered server-side, and the toggle only switches a class on the .reveal-scope
 container. Without JavaScript the blind view stays visible and a server-rendered "Revealed mapping"
-table (from Judge/judge-mapping.json) sits directly below the ranking, so nothing is lost.
+table (from Judge/judge-mapping.json) sits directly below the ranking, so nothing is lost. With JavaScript,
+everything that names a candidate inside the scope (.reveal-only: the mapping table, verbatim quotes that name a
+candidate, review links to candidate folders) is hidden while blind, with a one-line .blind-note in its place.
 Review pages show the phase-1 candidate-NN blinding the same way (ReviewOrchestrator/blind-mapping.json).
 
 Everything is discovered from the model: judges, review types, letters and candidates are never hardcoded.
@@ -139,11 +141,42 @@ def _rv(blind_html: str, reveal_html: str) -> str:
     return f'<span class="blind-label">{blind_html}</span><span class="reveal-label">{reveal_html}</span>'
 
 
+def _blind_note(what: str) -> str:
+    """One line shown in the blind view with JavaScript, where .reveal-only content is hidden."""
+    return f'<p class="blind-note js-only small muted">Press <strong>Reveal names</strong> to see {what}.</p>'
+
+
+def _reveal_only(inner: str, what: str, tag: str = "div") -> str:
+    """Content that names candidates: visible without JS and when revealed; with JS in blind view, a note instead."""
+    return f'{_blind_note(what)}<{tag} class="reveal-only">{inner}</{tag}>'
+
+
+def _names_candidate(site: Site, text: str) -> bool:
+    """Does this (source) text name any candidate? (label, name, folder or slug, discovered from the model)"""
+    low = text.lower()
+    for c in site.model.candidates:
+        for k in (c.label, getattr(c, "name", ""), c.folder, c.slug):
+            if k and k.lower() in low:
+                return True
+    return False
+
+
+def _blind_figure(site: Site, shot, blind_name: str) -> str:
+    """figure() with alt text in the blind label (the shared alt names the candidate); inside a reveal scope the
+    revealed name is added as a caption line that CSS shows only in the revealed view."""
+    f = figure(site, shot)
+    c = site.model.cand(shot.slug) if shot.slug else None
+    if c is not None:
+        f = re.sub(r'alt="([^"]*)"', lambda m: 'alt="' + m.group(1).replace(
+            f" of {esc(c.label)}: ", f" of {esc(blind_name)}: ", 1) + '"', f, count=1)
+        f = f.replace("</figcaption>", f'<span class="reveal-label jr-shot-name">{esc(c.label)}</span></figcaption>', 1)
+    return f
+
+
 def _toggle(scope_id: str, what_off: str, what_on: str) -> str:
-    """The Blind/Reveal button (hidden until reveal.js runs) and its polite status line."""
+    """The Blind/Reveal button (.js-only: shown from first paint when JS runs, absent without) and its status line."""
     return (f'<div class="reveal-bar" role="group" aria-label="Blind or revealed view">'
-            f'<button type="button" class="btn reveal-btn" data-reveal-toggle aria-pressed="false" aria-controls="{scope_id}" '
-            f'hidden>'
+            f'<button type="button" class="btn reveal-btn js-only" data-reveal-toggle aria-pressed="false" aria-controls="{scope_id}">'
             f'<span class="reveal-icon" aria-hidden="true"></span><span class="reveal-text">Reveal names</span></button>'
             f'<p class="reveal-status small" data-reveal-status data-off="{esc(what_off)}" data-on="{esc(what_on)}" aria-live="polite">{esc(what_off)}</p>'
             f'</div>')
@@ -165,38 +198,18 @@ def _mode(j: Judge) -> str:
     return '<span class="jr-tag jr-tag-static" title="Read static material only, never ran the products">static</span>'
 
 
-# ---------------------------------------------------------------- score colours (light + dark ramps)
-
-# Dark theme: its own single-hue ramp, from a tint close to the dark surface (low score) to a light,
-# saturated blue (high score), so the best scores carry the emphasis in both themes. The light ramp is the
-# shared fragments.score_heat() scale.
-_DARK_RAMP = [(31, 39, 54), (34, 54, 88), (40, 74, 124), (54, 101, 166), (88, 137, 201), (138, 175, 226), (192, 213, 242)]
-
-
-def _rgb_fg(rgb: tuple[int, int, int]) -> str:
-    def lin(c: int) -> float:
-        c /= 255
-        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
-    lum = 0.2126 * lin(rgb[0]) + 0.7152 * lin(rgb[1]) + 0.0722 * lin(rgb[2])
-    return "#111111" if (lum + 0.05) / 0.05 >= 1.05 / (lum + 0.05) else "#ffffff"
-
+# ---------------------------------------------------------------- score colours
 
 def _score_vars(score: float, lo: float = 0, hi: float = 10) -> str:
-    """CSS custom properties for a score cell: --hb/--hf (light, from score_heat) and --hbd/--hfd (dark ramp).
-    judges.css picks the pair for the active theme; the number is always printed in the cell."""
-    light = dict(kv.split(":", 1) for kv in score_heat(score, lo, hi).split(";"))
-    t = min(1.0, max(0.0, (score - lo) / (hi - lo))) * (len(_DARK_RAMP) - 1)
-    i = min(int(t), len(_DARK_RAMP) - 2)
-    f = t - i
-    rgb = tuple(round(a + (b - a) * f) for a, b in zip(_DARK_RAMP[i], _DARK_RAMP[i + 1]))
-    return (f"--hb:{light['background']};--hf:{light['color']};"
-            f"--hbd:#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x};--hfd:{_rgb_fg(rgb)}")
+    """Inline style for a score cell: fragments.score_heat()'s theme-aware tokens (light and dark ramps live in
+    base.css); the number is always printed in the cell."""
+    return score_heat(score, lo, hi)
 
 
 def _score_legend() -> str:
-    sw = "".join(f'<span class="jr-swatch" style="{_score_vars(v)}">{v}</span>' for v in (2, 4, 6, 8, 10))
-    return (f'<p class="jr-legend small" role="note"><span>Score colour:</span><span>1</span>'
-            f'<span class="jr-swatches" aria-hidden="true">{sw}</span><span>10 (10 = best)</span></p>')
+    sw = "".join(f'<span class="jr-swatch" style="{_score_vars(v)}">{v}</span>' for v in range(1, 11))
+    return (f'<p class="jr-legend small" role="note"><span>Score colour, 1 to 10:</span>'
+            f'<span class="jr-swatches" aria-hidden="true">{sw}</span><span>(10 = best; stronger = higher)</span></p>')
 
 
 # ---------------------------------------------------------------- phase-1 review matrix
@@ -394,14 +407,18 @@ def _alert_quotes(site: Site, j: Judge) -> str:
             subs.append((k + 1, s))
         mine = [(n, s) for n, s in subs if f"**{j.label.lower()} judge**" in s.lower()]
         if patched or mine:
-            quotes.append(_quote(site, JUDGE_README, (i + 1, line), "Judge/README.md"))
-            quotes.extend(_quote(site, JUDGE_README, h, "Judge/README.md") for h in mine)
+            # (quote, reveal_only): a README line that names a candidate is hidden in the blind view (with JS)
+            for h in [(i + 1, line)] + mine:
+                quotes.append((_quote(site, JUDGE_README, h, "Judge/README.md"), _names_candidate(site, h[1])))
     if "MAPPING.md" in j.files:
+        # MAPPING.md is the revealed mapping, written after the judge finished: always revealed-only
         for i, line in enumerate(_read_lines(site, j.files["MAPPING.md"]), 1):
             if "alert(" in line:
-                quotes.append(_quote(site, j.files["MAPPING.md"], (i, line), "MAPPING.md"))
+                quotes.append((_quote(site, j.files["MAPPING.md"], (i, line), "MAPPING.md"), True))
     if not patched and not quotes:
         return ""
+    named = "".join(q for q, ro in quotes if ro)
+    quotes = [q for q, ro in quotes if not ro] + ([_reveal_only(named, "the quoted lines that name candidates")] if named else [])
     items = "".join(
         f'<li>{_rv(f"<strong>{esc(l)}</strong>", f"<strong>{esc(l)}</strong> = " + _clink(m.cand(j.mapping[l])))}: '
         f'{n} <code>alert(</code> call{"s" if n != 1 else ""} rewritten in the served copy</li>' for l, n in patched)
@@ -513,11 +530,11 @@ def build_judge(site: Site, j: Judge) -> None:
 <h2 id="mapping">Revealed mapping</h2>
 <p class="sec-lede">Which candidate stood behind each letter. The judge never saw this; it comes from
 {site.evidence(JUDGE_MAPPING, "Judge/judge-mapping.json")}{" and " + mapping_link if mapping_link else ""}.</p>
-<div class="table-wrap" role="region" aria-label="Revealed mapping"><table class="jr-mapping">
+{_reveal_only(f"""<div class="table-wrap" role="region" aria-label="Revealed mapping"><table class="jr-mapping">
 <thead><tr><th scope="col">Letter</th><th scope="col">Candidate</th><th scope="col">Folder</th><th scope="col">Prompt</th>
 <th scope="col" class="num">Judge's rank</th>{'<th scope="col" class="num">alert( patched</th>' if any_alert else ""}</tr></thead>
 <tbody>{"".join(mrows)}</tbody></table></div>
-{fc}
+{fc}""", "the mapping")}
 </section>"""
 
     # criteria, special elements, summary
@@ -551,12 +568,9 @@ def build_judge(site: Site, j: Judge) -> None:
     # screenshots
     shots = ""
     if j.shots:
-        figs = []
-        for s in j.shots:
-            f = figure(site, s)
-            if s.slug:
-                f = f.replace("</figcaption>", f'<span class="reveal-label jr-shot-name">{esc(m.cand(s.slug).label)}</span></figcaption>', 1)
-            figs.append(f)
+        letter_of = {slug: l for l, slug in j.mapping.items()}
+        figs = [_blind_figure(site, s, f"candidate {letter_of[s.slug]}" if s.slug in letter_of else "a candidate")
+                for s in j.shots]
         sdir = f"{j.dir}/screenshots"
         shots = f"""
 <section aria-labelledby="screenshots">
@@ -662,17 +676,20 @@ def build_review(site: Site, r: Review) -> None:
         shots = f"""
 <section aria-labelledby="screenshots">
 <h2 id="screenshots">Screenshots <span class="muted jr-count">{len(r.shots)}</span></h2>
-<div class="gallery">{"".join(figure(site, s) for s in r.shots)}</div>
+<div class="gallery">{"".join(_blind_figure(site, s, bid) for s in r.shots)}</div>
 </section>"""
 
-    links = [f'<li>Candidate page: {cand_link(c)} {prompt_badge(c.prompt)}</li>']
+    # items that name the candidate (its page, its folder, its builder transcript) are .reveal-only
+    ro = ' class="reveal-only"'
+    links = [f'<li{ro}>Candidate page: {cand_link(c)} {prompt_badge(c.prompt)}</li>']
     if others:
         links.append(f'<li>Other reviews of this candidate:<ul>{"".join(others)}</ul></li>')
     if "TRANSCRIPT.md" in r.files:
         links.append(f'<li>Review agent log: {site.evidence(r.files["TRANSCRIPT.md"], "TRANSCRIPT.md")}</li>')
-    links.append(f'<li>Review folder: {site.evidence(r.dir, r.dir + "/")}</li>')
+    folder_ro = ro if _names_candidate(site, r.dir) else ""
+    links.append(f'<li{folder_ro}>Review folder: {site.evidence(r.dir, r.dir + "/")}</li>')
     links.append(f'<li>Blind mapping: {site.evidence(BLIND_MAPPING, "ReviewOrchestrator/blind-mapping.json")}</li>')
-    links.append(f'<li>Builder chat transcript: {site.evidence(c.transcription, "TRANSCRIPTION.md")}</li>')
+    links.append(f'<li{ro}>Builder chat transcript: {site.evidence(c.transcription, "TRANSCRIPTION.md")}</li>')
 
     status_off = f"Blind view: {bid}, as the reviewer saw it."
     status_on = "Revealed: candidate from ReviewOrchestrator/blind-mapping.json."
@@ -699,7 +716,6 @@ def build_review(site: Site, r: Review) -> None:
 <p><code class="jr-line">{esc(r.overall_line)}</code></p>
 <p class="small">{site.evidence(rp, f"REVIEW.md, line {n}" if n else "REVIEW.md", anchor=f"#L{n}" if n else "", line=n)}</p></div>
 </section>
-</div>
 <section aria-labelledby="review">
 <h2 id="review">Review, verbatim</h2>
 <p class="sec-lede">The reviewer's REVIEW.md as written (its heading is shown above). {site.evidence(rp, "REVIEW.md")}</p>
@@ -710,7 +726,9 @@ def build_review(site: Site, r: Review) -> None:
 <section aria-labelledby="links">
 <h2 id="links">Links</h2>
 <ul class="jr-ev">{"".join(links)}</ul>
+{_blind_note("the links to the candidate, its folder and its builder transcript")}
 </section>
+</div>
 """
     site.page(_rel(url), f"{r.title}", body, section="judges",
               crumbs=[("Judges & reviews", "judges/"), ("Reviews", "reviews/"), (_nb(r.title), "")], scripts=SCRIPTS,

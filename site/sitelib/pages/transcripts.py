@@ -5,7 +5,8 @@ transcripts/<tid>/           page 1: intro (the file's header, verbatim), full m
 transcripts/<tid>/<n>/       later pages (split by rendered size so each page stays phone-sized)
 
 Every message gets id="m-<n>" (numbered across the whole transcript) and a visible "#n" permalink.
-Thinking and tool input/output are collapsed into <details class="fold">. Bodies go through md.render,
+Thinking and tool input/output are collapsed into <details class="fold">, including Copilot-style
+"**Thinking**" paragraphs (see thinking_split). Bodies go through md.render,
 so literal <script>, <system-reminder> etc. in the corpus are shown as text.
 """
 from __future__ import annotations
@@ -265,11 +266,75 @@ def _demote(html_: str, by: int) -> str:
     return _HEADING_TAG.sub(lambda m: f"<{m.group(1)}h{min(6, int(m.group(2)) + by)}{m.group(3)}", html_)
 
 
+_THINKING = "**Thinking**"
+
+
+def _blocks(text: str) -> list[str]:
+    """Blank-line separated blocks of Markdown (fence-aware: a fenced block stays whole)."""
+    out: list[str] = []
+    cur: list[str] = []
+    fences = _Fences()
+    for line in text.split("\n"):
+        if not fences.feed(line) and not line.strip():
+            if cur:
+                out.append("\n".join(cur))
+                cur = []
+            continue
+        cur.append(line)
+    if cur:
+        out.append("\n".join(cur))
+    return out
+
+
+def thinking_split(text: str, last: bool) -> list[tuple[str, str]]:
+    """Copilot-style 'Thinking' sections in one Markdown segment: a paragraph that is only **Thinking** starts a
+    block that runs up to the next **Thinking** paragraph, the next blockquote (the '> …' tool summary line) or the
+    end of the message. Returns [('md', text) | ('thinking', text)]. Not folded: a block that runs to the end of the
+    message (the final answer, which follows the last tool summary) and an empty block (label directly followed
+    by a tool summary); their label paragraph stays as written. `last`: this segment ends the message."""
+    blocks = _blocks(text)
+    if not any(b.strip() == _THINKING for b in blocks):
+        return [("md", text)]
+    out: list[tuple[str, str]] = []
+    plain: list[str] = []
+    i, n = 0, len(blocks)
+    while i < n:
+        if blocks[i].strip() != _THINKING:
+            plain.append(blocks[i])
+            i += 1
+            continue
+        j = i + 1
+        while j < n and blocks[j].strip() != _THINKING and not blocks[j].lstrip().startswith(">"):
+            j += 1
+        inner = blocks[i + 1:j]
+        if not inner or (j == n and last):
+            plain.extend(blocks[i:j])
+        else:
+            if plain:
+                out.append(("md", "\n\n".join(plain)))
+                plain = []
+            out.append(("thinking", "\n\n".join(inner)))
+        i = j
+    if plain:
+        out.append(("md", "\n\n".join(plain)))
+    return out
+
+
+def _thinking_fold(inner: str, link) -> str:
+    peek = _clip(md.to_text(inner).split("\n", 1)[0])
+    return (f'<details class="fold fold-thinking"><summary><span class="fold-kind">Thinking</span>'
+            f'{f" <span class=fold-peek>{esc(peek)}</span>" if peek else ""}'
+            f' <span class="fold-size">{esc(_size(inner.strip()))}</span></summary>\n'
+            f'{md.render(inner, link=link, heading_ids=False)}</details>')
+
+
 def render_body(body: str, link) -> str:
     parts = []
-    for seg in segments(body):
+    segs = segments(body)
+    for k, seg in enumerate(segs):
         if seg[0] == "md":
-            parts.append(md.render(seg[1], link=link, heading_ids=False))
+            for kind, text in thinking_split(seg[1], k == len(segs) - 1):
+                parts.append(md.render(text, link=link, heading_ids=False) if kind == "md" else _thinking_fold(text, link))
         elif seg[0] == "call":
             _, name, desc, fence = seg
             inner = _fence_inner(fence)
@@ -415,7 +480,7 @@ def pager(t: Transcript, here: int, top: bool) -> str:
 
 
 def tools_bar(t: Transcript) -> str:
-    """Controls that need JS; hidden until transcripts.js shows them."""
+    """Controls that need JS: .js-only (visible from first paint when JS runs, absent without it)."""
     if not t.msgs:
         return ""
     jump = ""
@@ -423,7 +488,7 @@ def tools_bar(t: Transcript) -> str:
         jump = (f'<form class="tx-jump" data-tx-jump><label for="tx-jump-n">Jump to message</label> '
                 f'<input id="tx-jump-n" type="number" inputmode="numeric" min="1" max="{len(t.msgs)}" required> '
                 f'<button class="btn" type="submit">Go</button></form>')
-    return (f'<div class="toolbar tx-tools" data-tx-tools hidden>'
+    return (f'<div class="toolbar tx-tools js-only" data-tx-tools>'
             f'<button class="btn" type="button" data-fold="open">Expand all</button>'
             f'<button class="btn" type="button" data-fold="close">Collapse all</button>{jump}</div>')
 

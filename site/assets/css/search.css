@@ -54,3 +54,6 @@
 .search-more:hover { border-color: var(--accent); }
 .search-more[hidden] { display: none; }
 .search-more:disabled { opacity: .6; cursor: progress; }
+
+/* the no-JS note: theme.js sets html.js in <head>, so it never paints when search.js can run */
+html.js #search-nojs { display: none; }

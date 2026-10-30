@@ -2,7 +2,8 @@
 // The server renders both labels (.blind-label / .reveal-label) inside a [data-reveal-scope] container;
 // this script only toggles .is-revealed on it, keeps every [data-reveal-toggle] button's aria-pressed
 // in sync, and stores the state in the URL hash (#reveal) so a revealed view can be linked.
-// Without JavaScript the blind view and the server-rendered mapping stay visible.
+// The button is .js-only (visible from first paint when JS runs). While blind, CSS hides .reveal-only content
+// (html.js); without JavaScript the blind view and the server-rendered mapping stay visible.
 (() => {
   "use strict";
   const scopes = document.querySelectorAll("[data-reveal-scope]");
@@ -29,9 +30,7 @@
     }
   }
 
-  scopes.forEach((s) => s.classList.add("has-js"));
   buttons.forEach((b) => {
-    b.hidden = false;
     b.addEventListener("click", () => apply(b.getAttribute("aria-pressed") !== "true", true));
   });
   window.addEventListener("hashchange", () => {
