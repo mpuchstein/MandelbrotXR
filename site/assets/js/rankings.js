@@ -25,7 +25,6 @@
   const buttons = Array.from(table.tHead.querySelectorAll("button[data-col]"));
   const cols = new Map(buttons.map((b) => [b.dataset.col, b]));
   const judgeThs = Array.from(table.tHead.querySelectorAll("th[data-material]"));
-  const controls = document.getElementById("rank-controls");
   const status = document.getElementById("rank-status");
   const heatBtn = document.getElementById("rank-heat");
   const resetBtn = document.getElementById("rank-reset");
@@ -229,9 +228,6 @@
   if (resetBtn) resetBtn.addEventListener("click", () => { state = { ...DEFAULT }; update(); });
   window.addEventListener("hashchange", () => { state = parse(location.hash); apply(true); writeHash(); overflow(); });
 
-  if (controls) controls.hidden = false;
-  if (status) status.hidden = false;
-  table.classList.add("js");
   state = parse(location.hash);
   apply(false);
   writeHash();

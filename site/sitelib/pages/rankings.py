@@ -172,7 +172,7 @@ def _matrix(site: Site) -> tuple[str, str]:
              f'<caption class="sr-only">{esc(caption)}</caption>'
              f'<thead><tr>{"".join(head)}</tr></thead><tbody>{"".join(body)}</tbody></table></div></div></div>')
 
-    # controls (hidden without JS; rankings.js unhides them)
+    # controls (only shown when JS runs)
     prompts = sorted({c.prompt for c in m.candidates}, key=lambda p: (len(p), p))
     mats = [x for x in ("static", "browser") if any(_material(j) == x for j in judges)]
 
@@ -194,38 +194,21 @@ def _matrix(site: Site) -> tuple[str, str]:
     legend = (f'<div class="rk-legend" id="heat-legend" hidden>{heat_legend(nmax)}'
               f'<span class="legend-scale" role="note"><span>Score colour: 1</span><span class="heat-swatches" aria-hidden="true">'
               f'{sc_sw}</span><span>10 = best</span></span>'
-              f'<span class="small muted">One blue scale, darker = better; the numbers stay in every cell.</span></div>')
+              f'<span class="small muted">One blue scale, stronger colour = better (darker in the light theme, lighter in the dark theme); the numbers stay in every cell.</span></div>')
 
-    controls = (f'<div class="rk-controls" id="rank-controls" hidden>{"".join(ctrl)}</div>{legend}'
-                f'<p class="rk-status small muted" id="rank-status" aria-live="polite" hidden></p>')
+    # JS-only controls carry .js-only (base.css hides them unless theme.js marked <html class="js">),
+    # so they are laid out from the first paint; only the state-dependent legend uses [hidden]
+    controls = (f'<div class="rk-controls js-only" id="rank-controls">{"".join(ctrl)}</div>{legend}'
+                f'<p class="rk-status small muted js-only" id="rank-status" aria-live="polite"></p>')
     return controls, table
 
 
 # ---------------------------------------------------------------- Kendall τ
 
-# Dark-theme ramp for τ: low agreement sits close to the dark surface, high agreement is the lightest,
-# so salience follows the data in both themes (the light theme uses fragments.score_heat).
-_DARK_RAMP = [(31, 38, 51), (37, 55, 86), (48, 79, 128), (70, 112, 176), (110, 152, 214), (162, 194, 238), (212, 227, 250)]
-
-
-def _rel_lum(rgb: tuple[int, int, int]) -> float:
-    def lin(c: int) -> float:
-        c /= 255
-        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
-    r, g, b = rgb
-    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
-
-
 def _tau_style(t: float) -> str:
-    """Per-cell custom properties for both themes: --hbg/--hfg (light, the site's single-hue scale)
-    and --dbg/--dfg (dark, the inverted-lightness ramp above). Text colour is picked per cell for contrast."""
-    x = min(1.0, max(0.0, (t + 1) / 2)) * (len(_DARK_RAMP) - 1)
-    i = min(int(x), len(_DARK_RAMP) - 2)
-    f = x - i
-    rgb = tuple(round(a + (b - a) * f) for a, b in zip(_DARK_RAMP[i], _DARK_RAMP[i + 1]))
-    lum = _rel_lum(rgb)
-    fg = "#000000" if (lum + 0.05) / 0.05 >= 1.05 / (lum + 0.05) else "#ffffff"  # pure black: >= 4.58:1 at the crossover
-    return f"{_heatvars(score_heat(t, -1, 1))};--dbg:#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x};--dfg:{fg}"
+    """Per-cell custom properties --hbg/--hfg from the site's theme-aware single-hue scale over τ ∈ [−1, 1]
+    (strong agreement = darkest in the light theme, lightest in the dark theme; every pair is ≥ 4.5:1)."""
+    return _heatvars(score_heat(t, -1, 1))
 
 
 def _kendall(site: Site) -> str:
@@ -393,6 +376,9 @@ def build(site: Site) -> None:
 
     n_j, n_c, n_t = len(judges), len(ranked), len(rtypes)
     mats = sorted({_material(j) for j in judges})
+    prompts = sorted({c.prompt for c in m.candidates}, key=lambda p: (len(p), p))
+    prompts_li = (f'<li><strong>{esc(" and ".join([", ".join(prompts[:-1]), prompts[-1]]))}</strong> are different prompts; '
+                  'each candidate was judged against its own prompt, in one combined ranking.</li>') if len(prompts) > 1 else ""
     body = f"""
 <h1>Rankings</h1>
 <p class="lede">{n_j} blind judges each ranked the candidates from best to worst; {n_t} kinds of blind phase-1 review scored each one from 1 to 10. This page puts every number side by side. Sort any column, filter by prompt or by what the judges could see, and switch on the heatmap.</p>
@@ -409,11 +395,11 @@ def build(site: Site) -> None:
 <div class="note">
 <ul>
 <li><strong>Rank 1 = best.</strong> Each judge column is one judge’s blind ranking of all candidates it saw. A dash (–) means that judge did not rank that candidate.</li>
-<li><strong>Mean rank</strong> <span class="derived">derived</span> is the arithmetic mean of a candidate’s ranks over the judges that ranked it (over the judges currently shown, when you filter by material). Equal means are ties and are shown as ties: “=1” means shared first place. The standing (#) is only given to candidates ranked by every judge; a candidate that some judges did not rank shows how many did (e.g. “4/5 judges”) and is listed after the others.</li>
+<li><strong>Mean rank</strong> <span class="derived">derived</span> is the arithmetic mean of a candidate’s ranks over the judges that ranked it (over the judges currently shown, when you filter by material). Equal means are ties and are shown as ties: “=1” means shared first place. The standing (#) is only given to candidates ranked by every judge; a candidate that some judges did not rank shows how many did (e.g. “{max(n_j - 1, 0)}/{n_j} judges”) and is listed after the others.</li>
 <li><strong>Spread</strong> <span class="derived">derived</span> gives the best and worst rank a candidate received (min–max) and σ, the population standard deviation of its ranks across judges: σ = √(Σ(r − mean)² / n). A large σ marks a controversial candidate. In the glyph, the faint end ticks mark rank 1 (left) and the last rank (right), each dot is one judge (equal ranks stack vertically) and the tall tick is the mean.</li>
 <li><strong>Phase-1 scores</strong> are the 1–10 overall scores from separate blind reviews (one reviewer per review type and candidate), not from the judges. Click a score to read the review.</li>
 <li><strong>Judge material:</strong> {", ".join(f"“{x}”" for x in mats)} — static judges read code and/or transcripts only; browser judges used the product hands-on in desktop Chrome.</li>
-<li><strong>v0 and v1</strong> are different prompts; each candidate was judged against its own prompt, in one combined ranking.</li>
+{prompts_li}
 </ul>
 </div>
 {caveats_html(compact=True)}

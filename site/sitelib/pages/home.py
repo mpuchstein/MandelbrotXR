@@ -277,7 +277,7 @@ def compact_ranking(site: Site) -> str:
 QUICK = [
     ("rankings/", "Rankings", "Sortable judge × candidate matrix with spread, Kendall τ agreement and a bump chart."),
     ("compare/", "Compare", "Any two candidates side by side: scores, ranks, justifications, screenshots."),
-    ("techniques/", "Techniques", "Every special element the judges credited, grouped by technique, plus claim-vs-code mismatches."),
+    ("techniques/", "Techniques", "Every special element the judges noted, grouped by technique, plus claim-vs-code mismatches."),
     ("judges/", "Judges & reviews", "Each judge’s material, prompt, criteria and ranking, with a blind/reveal toggle; every phase-1 review."),
     ("methodology/", "Methodology", "Pipeline, blinding, incidents, environment limits and both prompts verbatim."),
     ("data/", "Data", "results.json and CSVs with a documented schema, plus the changelog and Atom feed."),

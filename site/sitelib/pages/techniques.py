@@ -1,7 +1,7 @@
 """Special-elements catalog: techniques/ (one page).
 
 Every bullet of every judge's "## Special elements" section (data.Judge.special) is quoted verbatim,
-grouped by technique and cross-linked to the candidates it credits. The technique taxonomy is the
+grouped by technique and cross-linked to the candidates it names. The technique taxonomy is the
 ordered TECHNIQUES rule list below: a bullet's primary technique is the first rule whose pattern
 matches its bold label, or, if no rule matches the label, the first rule matching the whole bullet;
 anything still unmatched lands in "Other", so a new judge's bullets always appear. Other rules that
@@ -249,7 +249,7 @@ def _technique_section(site: Site, t: Technique, prim: list[Item], sec: list[Ite
         f'<span class="tq-n"> ×{n}</span><span class="sr-only"> ({_plural(n, "bullet")})</span></a>'
         for s, n in sorted(credits.items(), key=lambda kv: rk(kv[0])))
     stats = (f'{_plural(len(prim), "bullet")} from {_plural(len(judges), "judge")} · '
-             f'{_plural(len(credits), "candidate")} credited')
+             f'{_plural(len(credits), "candidate")} named')
     body = "".join(_bullet(site, it, by_id) for it in prim)
     also = ""
     if sec:
@@ -262,7 +262,7 @@ def _technique_section(site: Site, t: Technique, prim: list[Item], sec: list[Ite
 <h2 id="t-{t.id}">{esc(t.name)}</h2>
 <p class="tq-desc">{esc(t.desc)}</p>
 <p class="small muted tq-stats">{stats}</p>
-{f'<p class="tq-chips" aria-label="Candidates credited, in order of mean rank">{chips}</p>' if chips else ''}
+{f'<p class="tq-chips" aria-label="Candidates named, in order of mean rank">{chips}</p>' if chips else ''}
 {listing}
 {also}
 </section>"""
@@ -284,7 +284,7 @@ def _matrix(site: Site, techs: list[Technique], prim: dict[str, list[Item]]) -> 
             col_tot[c.slug] += n
             if n:
                 cells.append(f'<td class="num tq-hit" style="{_count_heat(n, hi)}"><a href="#t-{t.id}" aria-label="{esc(t.name)}: {esc(c.label)}, '
-                             f'{_plural(n, "bullet")}"><span aria-hidden="true">✓</span>&#8239;{n}</a></td>')
+                             f'{_plural(n, "mention")}">{n}</a></td>')
             else:
                 cells.append('<td class="num tq-none"><span aria-hidden="true">–</span><span class="sr-only">none</span></td>')
         rows.append(f'<tr><th scope="row"><a href="#t-{t.id}">{esc(t.name)}</a></th>{"".join(cells)}'
@@ -296,11 +296,12 @@ def _matrix(site: Site, techs: list[Technique], prim: dict[str, list[Item]]) -> 
     return f"""<p class="small tq-legend-p">{_count_legend(hi)}{note}</p>
 <div class="table-wrap matrix-wrap tq-matrix-wrap" tabindex="0" role="region" aria-label="Candidate by technique matrix (scrolls)">
 <table class="tq-matrix">
-<caption>Number of special-element bullets crediting each candidate, by primary technique. Columns in order of mean rank {DERIVED}
+<caption>Mentions: the number of special-element bullets naming each candidate, by primary technique. These are counts of
+mentions, not ratings: a bullet may describe a strength or a problem. Columns in order of mean rank {DERIVED}
 (the average of the judges’ ranks; left = best). A bullet that names several candidates counts once for each; the Bullets column counts each bullet once.</caption>
 <thead><tr><th scope="col">Technique</th>{head}<th scope="col" class="num">Bullets</th></tr></thead>
 <tbody>{"".join(rows)}</tbody>
-<tfoot><tr><th scope="row">Credits per candidate</th>{foot}<td class="num tq-tot">{total}</td></tr></tfoot>
+<tfoot><tr><th scope="row">Bullets naming the candidate <span class="derived">derived</span><span class="sr-only"> (sum of the column)</span></th>{foot}<td class="num tq-tot">{total}</td></tr></tfoot>
 </table></div>"""
 
 
@@ -313,13 +314,13 @@ def _head_label(label: str) -> str:
 
 
 def _count_heat(n: int, hi: int) -> str:
-    """Single-hue fill for a credit count, the same blue scale as the score heatmaps; 1 is light, hi darkest."""
+    """Single-hue fill for a mention count, the same blue scale as the score heatmaps; 1 is faintest, hi strongest."""
     return score_heat(n, 0, max(1, hi))
 
 
 def _count_legend(hi: int) -> str:
     sw = "".join(f'<span class="heat-swatch" style="{_count_heat(n, hi)}">{n}</span>' for n in range(1, hi + 1))
-    return (f'<span class="legend-scale tq-legend"><span>Shading darkens with the count:</span>'
+    return (f'<span class="legend-scale tq-legend"><span>Shading strengthens with the number of mentions:</span>'
             f'<span class="heat-swatches" aria-hidden="true">{sw}</span></span>')
 
 
@@ -529,7 +530,7 @@ def build(site: Site) -> None:
     body = f"""<header class="tq-head">
 <h1>Techniques and special elements</h1>
 <p class="lede">Every bullet from every judge’s “Special elements” section — {_plural(len(items), "bullet")} from
-{_plural(nj, "judge")} — quoted verbatim and grouped by technique, with the candidates each one credits.</p>
+{_plural(nj, "judge")} — quoted verbatim and grouped by technique, with the candidates each one names.</p>
 <p>Letters are each judge’s own blind labels; the arrow shows the candidate the letter maps to in
 {site.evidence("Judge/judge-mapping.json", "Judge/judge-mapping.json")}. Judges: {judge_links}. The bullets include both
 strengths and problems, exactly as the judges wrote them; this page does not rate them. A separate section collects
@@ -543,14 +544,15 @@ strengths and problems, exactly as the judges wrote them; this page does not rat
 {_rules_details()}
 <section aria-labelledby="matrix">
 <h2 id="matrix">Candidate × technique matrix</h2>
-<p class="small muted">Each cell shows the number of bullets (✓ and a count) that credit the candidate under that primary
-technique; “–” means none. Select a row or a count to jump to the quotes.</p>
+<p class="small muted">Each cell shows how many bullets name the candidate under that primary technique (mentions);
+“–” means none. These are counts of mentions, not ratings: many bullets are criticisms. The bottom row sums each column.
+Select a row or a count to jump to the quotes.</p>
 {_matrix(site, techs, prim)}
 </section>
 {sections}
 {mm_html}"""
     site.page(PAGE, "Techniques", body, section="techniques", crumbs=[("Techniques", URL)],
-              description="Every special element the judges credited, quoted verbatim and grouped by technique, "
+              description="Every special element the judges noted, quoted verbatim and grouped by technique, "
                           "plus claims-vs-code mismatches reported by the transcript judges and reviews.")
 
     site.search_doc(URL, "Techniques and special elements", "page", "Special-elements catalog",

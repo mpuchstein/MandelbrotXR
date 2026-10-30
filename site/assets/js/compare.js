@@ -1,7 +1,8 @@
 // Compare picker. Every pair has its own pre-rendered page, compare/<a>-vs-<b>/, so the URL is the selection.
 // - On compare/ (index): ?a=<slug>&b=<slug> (or #a=…&b=…) redirects to that pair page with location.replace.
-// - On every page with the picker: changing a select opens the chosen pair at once (the form says so up
-//   front); picking the slug already chosen on the other side swaps the two; submit goes straight there.
+// - On every page with the picker: changing a select only updates the status text (so arrow keys can step
+//   through a closed <select>, which fires change in Chromium); picking the slug already chosen on the other
+//   side swaps the two; submitting the form (Compare button, or Enter on a select) opens the pair page.
 // Valid slugs come from the <select> options, never from this file. Without JavaScript the form submits to
 // compare/?a&b and the server-rendered list of every pair page stays usable.
 (() => {
@@ -56,7 +57,8 @@
     if (sel.value === other.value) other.value = prev.get(sel);
     prev.set(selA, selA.value);
     prev.set(selB, selB.value);
-    go(selA.value, selB.value, false);
+    const label = (s) => (s.selectedOptions[0] ? s.selectedOptions[0].textContent : s.value);
+    say(`Selected ${label(selA)} vs ${label(selB)}. Press Compare to open it.`);
   };
   // Back/forward: show the selection this page stands for, not the one the user changed before leaving.
   window.addEventListener("pageshow", (e) => {
@@ -68,6 +70,15 @@
   });
   selA.addEventListener("change", () => onChange(selA, selB));
   selB.addEventListener("change", () => onChange(selB, selA));
+  // Enter on a closed <select> does not submit a form natively; make it do so (the hint promises it).
+  for (const sel of [selA, selB]) {
+    sel.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      e.preventDefault();
+      if (form.requestSubmit) form.requestSubmit();
+      else if (!go(selA.value, selB.value, false)) say("Pick two different candidates.");
+    });
+  }
   form.addEventListener("submit", (e) => {
     if (go(selA.value, selB.value, false) || selA.value === selB.value) e.preventDefault();
   });

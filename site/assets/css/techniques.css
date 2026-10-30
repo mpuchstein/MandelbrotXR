@@ -81,3 +81,5 @@
   .tq-matrix tbody th, .tq-matrix tfoot th { min-width: 128px; }
   .tq-matrix th[scope="col"].num { min-width: 88px; }
 }
+/* focus inside a shaded cell: two-tone ring (the cell's own text colour + a page-surface halo) that reads on every shade */
+.tq-matrix td.tq-hit a:focus-visible { outline: 3px solid currentColor; outline-offset: 1px; box-shadow: 0 0 0 6px var(--surface); border-radius: 2px; position: relative; z-index: 2; }

@@ -171,7 +171,7 @@ def picker(site: Site, a=None, b=None, *, swap: bool = True) -> str:
 {sel("b", "Candidate B", b)}
 <div class="cmp-actions"><button class="btn btn-primary" type="submit">Compare</button>{swap}</div>
 </div>
-<p id="cmp-hint" class="small muted cmp-hint">With JavaScript on, changing a selection opens that comparison at once. Every pair has its own address, <code>compare/&lt;a&gt;-vs-&lt;b&gt;/</code>, so a comparison can be bookmarked and shared.</p>
+<p id="cmp-hint" class="small muted cmp-hint">Choose A and B, then press Compare (or Enter). Every pair has its own address, <code>compare/&lt;a&gt;-vs-&lt;b&gt;/</code>, so a comparison can be bookmarked and shared.</p>
 <p class="cmp-status small" role="status" aria-live="polite" data-cmp-status></p>
 </form>"""
 
@@ -197,14 +197,14 @@ def build_index(site: Site) -> None:
     n = len(cs)
     body = f"""<h1>Compare two candidates</h1>
 <p class="lede">Pick any two of the {n} candidates to see them side by side: the rank every judge gave them, their
-phase-1 review scores, the judges' verbatim justifications, the special elements credited to each, and screenshots.
+phase-1 review scores, the judges' verbatim justifications, the special elements the judges noted for each (strengths and problems), and screenshots.
 The selection lives in the URL.</p>
 {picker(site, cs[0] if cs else None, cs[1] if len(cs) > 1 else None, swap=False)}
 {caveats_html(compact=True)}
 <section aria-labelledby="sug-h">
 <h2 id="sug-h">Suggested comparisons</h2>
 <p class="small muted">Computed from the data at build time: pairs tied on mean rank, builds of the same model from
-the two prompts, and the pair whose per-judge rank differences vary the most.</p>
+different prompts, and the pair whose per-judge rank differences vary the most.</p>
 <ul class="cmp-sugs">{cards}</ul>
 </section>
 <section aria-labelledby="all-h">
@@ -256,7 +256,8 @@ def _overview(site: Site, a, b) -> str:
     full = m.full(a.slug) and m.full(b.slug)
     note = ("" if full else " A candidate not ranked by every judge has a mean that is not comparable with the others'.")
     out += (f'<p class="small muted">Mean rank {DERIVED} is the arithmetic mean of the ranks a candidate received '
-            f'(1 = best); the standing counts candidates with a strictly lower mean, so ties share a place.{note} '
+            f'(1 = best). Standing = 1 + the number of candidates with a strictly lower mean rank, among those ranked by '
+            f'every judge (a competition rank: ties share a place, e.g. 1, 1, 3).{note} '
             f'<a href="@/methodology/#caveats">Caveats</a>.</p>')
     return out
 
@@ -441,7 +442,9 @@ def _scores(site: Site, a, b) -> str:
             dc, hc = "–", '<span class="muted">–</span>'
         rows.append(f'<tr><th scope="row">{esc(label)}</th><td class="num">{fa}</td><td class="num">{fb}</td>'
                     f'<td class="num">{dc}</td><td>{hc}</td></tr>')
-    out = [f"""<p>Each phase-1 reviewer scored one candidate at a time, blind, on six 1–10 criteria of its own review type,
+    ncrit = sorted({len(r.criteria) for r in m.reviews})
+    crit = f"{ncrit[0]} 1–10 criteria" if len(ncrit) == 1 else "1–10 criteria"
+    out = [f"""<p>Each phase-1 reviewer scored one candidate at a time, blind, on {crit} of its own review type,
 plus an overall score. Higher is better. Scores link to the full review.</p>
 <figure class="cmp-fig">{_mirror_chart(m, a, b)}<figcaption class="small muted">Overall score per review type, mirrored:
 A to the left of the centre line, B to the right. The same numbers are in the table below.</figcaption></figure>
@@ -533,17 +536,17 @@ def _specials(site: Site, a, b) -> str:
     def block(side, c, items):
         n = len(items)
         head = (f'<p class="cmp-side-h">{_tag(side, c, name=True)} <span class="muted small">{n} bullet{"s" if n != 1 else ""} '
-                f'credit {side} only</span></p>')
+                f'{"name" if n != 1 else "names"} {side} only</span></p>')
         return head + (f'<ul class="cmp-quotes">{"".join(items)}</ul>' if items else
-                       '<p class="muted small">No bullet credits this candidate without the other.</p>')
+                       '<p class="muted small">No bullet names this candidate without the other.</p>')
     sh = (f'<ul class="cmp-quotes">{"".join(shared)}</ul>' if shared else
-          '<p class="muted small">No bullet credits both candidates.</p>')
+          '<p class="muted small">No bullet names both candidates.</p>')
     return (f"<p>Bullets from the judges' “Special elements” sections, quoted verbatim. Letters are each judge's blind "
-            f"labels; a bullet may also name other candidates. Every element, grouped by technique, is in the "
+            f"labels; a bullet may also name other candidates, and may describe a strength or a problem. Every element, grouped by technique, is in the "
             f'<a href="@/techniques/">techniques catalog</a>.</p>'
             + _cols(block("A", a, only_a), block("B", b, only_b), a, b)
             + f'<h3 class="cmp-shared-h">Shared <span class="muted small">{len(shared)} bullet{"s" if len(shared) != 1 else ""} '
-              f'credit both A and B</span></h3>' + sh)
+              f'{"name" if len(shared) != 1 else "names"} both A and B</span></h3>' + sh)
 
 
 def _pick_shots(c, n: int) -> list:

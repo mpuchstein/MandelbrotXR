@@ -190,8 +190,8 @@ def build_index(site: Site) -> None:
 the task prompts. They are listed by mean rank across the {judges} blind judges. Every card links to a page with
 the product, its reviews, every judge's verbatim justification, screenshots and facts.</p>
 <p class="note small"><strong>Mean rank</strong> {DERIVED} is the arithmetic mean of a candidate's ranks over the judges
-that ranked it; the standing counts how many candidates have a strictly lower mean (ties share a place, shown as
-“(tie)”). Phase-1 overall scores are the 1–10 scores the blind reviewers wrote, one per review type.
+that ranked it. Standing = 1 + the number of candidates with a strictly lower mean rank, among those ranked by
+every judge (a competition rank: ties share a place, e.g. 1, 1, 3; shown as “(tie)”). Phase-1 overall scores are the 1–10 scores the blind reviewers wrote, one per review type.
 <a href="@/rankings/">Full rankings</a> · <a href="@/methodology/#caveats">caveats</a>.</p>
 <div class="grid cand-grid">
 {cards}
@@ -428,7 +428,9 @@ def _criteria(site: Site, c) -> str:
 </section>""")
     if not out:
         return '<p class="muted">No phase-1 review of this candidate exists.</p>'
-    return ("<p>Each review type had its own six criteria, so each is charted separately. Scores are the reviewers' own; "
+    ncrit = sorted({len(r.criteria) for r in m.reviews})
+    crit = f"{ncrit[0]} criteria" if len(ncrit) == 1 else "criteria"
+    return (f"<p>Each review type had its own {crit}, so each is charted separately. Scores are the reviewers' own; "
             "the reasons are quoted verbatim.</p>" + "\n".join(out))
 
 
@@ -476,7 +478,7 @@ def _specials(site: Site, c) -> str:
 <cite><a href="{judge_url(j)}">{esc(j.label)} judge</a> · {"; ".join(letters)} — {_ev(site, p, "RANKING.md" + (f" line {line}" if line else ""), line)}</cite></blockquote></li>""")
     if not items:
         return ('<p class="muted">No judge listed a special element for this candidate. '
-                'See the <a href="@/techniques/">techniques catalog</a> for every credited element.</p>')
+                'See the <a href="@/techniques/">techniques catalog</a> for every element.</p>')
     return (f'<p>Bullets from the judges’ “Special elements” sections that name this candidate, quoted verbatim. '
             f'Letters are the judge’s blind labels. All elements, grouped by technique, are in the '
             f'<a href="@/techniques/">techniques catalog</a>.</p><ul class="special-list">{"".join(items)}</ul>')
@@ -594,7 +596,7 @@ def build_candidate(site: Site, c) -> None:
         ("glance", "Results at a glance", _glance(site, c)),
         ("criteria", "Phase-1 criteria", _criteria(site, c)),
         ("judges", "Judges", _judges(site, c)),
-        ("special", "Special elements credited", _specials(site, c)),
+        ("special", "Special elements noted", _specials(site, c)),
         ("screenshots", "Screenshots", _gallery(site, c)),
         ("facts", "Facts", _facts(site, c)),
         ("links", "Links", _links(site, c)),
