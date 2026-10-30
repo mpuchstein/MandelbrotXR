@@ -11,9 +11,9 @@ from fractions import Fraction
 
 from .. import img, md
 from ..data import DataError
-from ..fragments import (caveats_html, cand_url, fmt_mean, fmt_score, judge_url, marker_svg, play_url, render_md,
-                         review_url, standing_html)
-from ..layout import Site, esc, figure
+from ..fragments import caveats_html, cand_url, fmt_mean, judge_url, marker_svg, render_md, standing_html
+from ..layout import Site, esc
+from . import candidates as _candidates
 
 ORDER = 100
 
@@ -210,58 +210,17 @@ def headline(site: Site) -> tuple[str, str]:
             f'<div class="home-headline-grid">'
             f'<figure class="quote home-quote"><blockquote>{quote}</blockquote>'
             f'<figcaption class="cite">Quoted verbatim from {cite}, below the aggregated rank table.</figcaption></figure>'
-            f'{derived_check(site, k_top, k_bot)}</div></section>')
+            f'{derived_check(site, k_top, k_bot)}{caveats_html(compact=True)}</div></section>')
     return html, md.to_text(text)
 
 
-def _score_rows(site: Site, c) -> str:
-    m = site.model
-    items = []
-    for type_id, _, label in m.review_types:
-        r = m.review(type_id, c.slug)
-        if r is None:
-            items.append(f'<li><span class="home-sl">{esc(label)}</span><span class="home-bar" aria-hidden="true"></span>'
-                         f'<span class="home-sv muted">–</span></li>')
-            continue
-        pct = max(0.0, min(100.0, r.overall * 10))
-        items.append(f'<li><a class="home-sl" href="{review_url(r)}">{esc(label)}<span class="sr-only"> review</span></a>'
-                     f'<span class="home-bar" aria-hidden="true"><span style="width:{pct:.0f}%"></span></span>'
-                     f'<span class="home-sv">{esc(fmt_score(r.overall))}<span class="muted">/10</span></span></li>')
-    return (f'<div class="home-scores"><p class="home-label">Phase-1 overall scores</p>'
-            f'<ul>{"".join(items)}</ul></div>')
-
-
-def thumb_shot(c):
-    """The candidate's thumbnail; for a portrait (phone-width) thumbnail, the first landscape
-    screenshot (same source kind first) instead, since the card frame is landscape."""
-    t = c.thumbnail
-    if t is None or t.width >= t.height:
-        return t
-    land = [s for s in c.shots if s.width >= s.height]
-    return next((s for s in land if s.source == t.source), land[0] if land else t)
-
-
 def card(site: Site, c) -> str:
-    m = site.model
-    shot = thumb_shot(c)
-    if shot:
-        thumb = figure(site, shot, cls="shot home-thumb", link=False)
-    else:
-        thumb = '<div class="home-thumb home-thumb-none" aria-hidden="true"><span>No screenshot</span></div>'
-    mean = m.mean_rank(c.slug)
-    nr = len(m.ranks(c.slug))
-    return (f'<li class="card home-card">{thumb}'
-            f'<div class="home-card-body">'
-            f'<h3 class="home-card-title"><a href="{cand_url(c)}">{esc(c.label)}</a></h3>'
-            f'<p class="home-card-meta muted small">{esc(c.vendor)} · {esc(c.product)}</p>'
-            f'<div class="home-rank"><div><span class="home-label">Place</span><span class="home-place">{standing_html(m, c)}</span></div>'
-            f'<div><span class="home-label">Mean rank <span class="derived">derived</span></span>'
-            f'<span class="home-mean">{fmt_mean(mean)}</span>'
-            f'<span class="home-of small muted">over {nr} judge{"s" if nr != 1 else ""}</span></div></div>'
-            f'{_score_rows(site, c)}'
-            f'<p class="home-actions"><a class="btn btn-primary" href="{play_url(c)}">Play<span class="sr-only"> {esc(c.label)}</span></a>'
-            f'<a class="btn" href="{cand_url(c)}">Details<span class="sr-only"> on {esc(c.label)}</span></a></p>'
-            f'</div></li>')
+    """The candidate card, identical to the one on candidates/ (same component, wording and score
+    display: series swatch, prompt badge, mean rank + standing, score chips), one heading level down
+    because on the home page the cards sit under the "All N candidates" h2."""
+    html = _candidates._card(site, c)
+    html = re.sub(r"<h2( class=\"cand-title\".*?)</h2>", r"<h3\1</h3>", html, count=1, flags=re.S)
+    return f"<li>{html}</li>"
 
 
 def _strip(m, c, n: int) -> str:
@@ -308,7 +267,7 @@ def compact_ranking(site: Site) -> str:
             f'The <a href="@/rankings/">rankings page</a> has the full sortable matrix, spread and judge agreement.</p>'
             f'<div class="table-wrap matrix-wrap"><table class="home-rank-table">'
             f'<caption>Phase-2 ranks by judge, ordered by mean rank.</caption>'
-            f'<thead><tr><th scope="col">Candidate</th><th scope="col" class="num">Place</th>'
+            f'<thead><tr><th scope="col">Candidate</th><th scope="col" class="num">Standing</th>'
             f'<th scope="col" class="num">Mean</th>{heads}<th scope="col"><span class="sr-only">Rank strip</span></th></tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table></div>'
             f'<p class="small muted">Same numbers as the aggregated table in {site.evidence(README, README)}.</p>'
@@ -347,11 +306,11 @@ def build(site: Site) -> None:
     body = (hero(site)
             + intro_html
             + head_html
-            + caveats_html(compact=True)
             + f'<section class="home-cands" aria-labelledby="home-cands-h"><h2 id="home-cands-h">All {len(m.candidates)} candidates</h2>'
-              f'<p class="muted">Ordered by mean rank. Scores are the phase-1 reviewers’ overall scores out of 10; '
-              f'each links to its review. Play opens the product, unmodified, as a full page.</p>'
-              f'<ul class="grid home-grid">{cards}</ul></section>'
+              f'<p class="muted">Ordered by mean rank; the same cards as on the <a href="@/candidates/">Candidates</a> page. '
+              f'Scores are the phase-1 reviewers’ overall scores out of 10; Details has each review and every judge’s '
+              f'justification. Play opens the product, unmodified, as a full page.</p>'
+              f'<ul class="grid cand-grid home-grid">{cards}</ul></section>'
             + compact_ranking(site)
             + quick_links())
     site.page("index.html", "MandelbrotXR results", body, section="home",

@@ -46,23 +46,38 @@ def _spread_text(lo: int, hi: int, sd: float) -> str:
     return f"{rng} · σ {sd:.2f}"
 
 
+GLYPH_W, GLYPH_H, GLYPH_PAD = 96, 18, 6   # rankings.js mirrors these (gx)
+
+
 def _gx(r: float, n: int) -> str:
-    """x position of rank r in the 64-unit-wide spread glyph."""
-    return f"{4 + (r - 1) * 56 / max(1, n - 1):.1f}"
+    """x position of rank r in the spread glyph (rank 1 at the left end, rank n at the right end)."""
+    return f"{GLYPH_PAD + (r - 1) * (GLYPH_W - 2 * GLYPH_PAD) / max(1, n - 1):.1f}"
 
 
 def _glyph(ranks: dict[str, int], mean: float | None, n: int) -> str:
-    """Tiny dot-range glyph: a line from min to max rank, one dot per judge, a tick at the mean.
+    """Dot-range glyph on a fixed 1..n scale: faint end ticks at rank 1 and rank n, a line from the best
+    to the worst rank, one dot per judge (judges that gave the same rank are stacked vertically, so
+    every dot stays visible) and a taller, darker tick at the mean.
     Purely decorative (aria-hidden); the text next to it carries the numbers."""
     if not ranks:
         return ""
     lo, hi = min(ranks.values()), max(ranks.values())
-    dots = "".join(f'<circle class="d" data-col="j-{esc(jid)}" data-r="{r}" cx="{_gx(r, n)}" cy="7" r="2.6"/>'
-                   for jid, r in ranks.items())
-    tick = (f'<line class="mu" x1="{_gx(mean, n)}" x2="{_gx(mean, n)}" y1="1.5" y2="12.5"/>' if mean is not None else "")
-    return (f'<svg class="rk-glyph" viewBox="0 0 64 14" width="64" height="14" aria-hidden="true" focusable="false" data-n="{n}">'
-            f'<line class="axis" x1="4" x2="60" y1="7" y2="7"/>'
-            f'<line class="rng" x1="{_gx(lo, n)}" x2="{_gx(hi, n)}" y1="7" y2="7"/>{dots}{tick}</svg>')
+    mid = GLYPH_H / 2
+    seen: dict[int, int] = {}
+    dots = []
+    for jid, r in ranks.items():
+        k = seen.get(r, 0)
+        seen[r] = k + 1
+        dy = 0.0 if k == 0 else (-1) ** k * 3.5 * ((k + 1) // 2)
+        dy = max(-mid + 3, min(mid - 3, dy))
+        dots.append(f'<circle class="d" data-col="j-{esc(jid)}" data-r="{r}" cx="{_gx(r, n)}" cy="{mid + dy:.1f}" r="2.6"/>')
+    ends = "".join(f'<line class="end" x1="{_gx(r, n)}" x2="{_gx(r, n)}" y1="{mid - 4:.1f}" y2="{mid + 4:.1f}"/>' for r in (1, n))
+    tick = (f'<line class="mu" x1="{_gx(mean, n)}" x2="{_gx(mean, n)}" y1="0.5" y2="{GLYPH_H - 0.5:.1f}"/>'
+            if mean is not None else "")
+    return (f'<svg class="rk-glyph" viewBox="0 0 {GLYPH_W} {GLYPH_H}" width="{GLYPH_W}" height="{GLYPH_H}" aria-hidden="true" '
+            f'focusable="false" data-n="{n}">'
+            f'<line class="axis" x1="{_gx(1, n)}" x2="{_gx(n, n)}" y1="{mid:.1f}" y2="{mid:.1f}"/>{ends}'
+            f'<line class="rng" x1="{_gx(lo, n)}" x2="{_gx(hi, n)}" y1="{mid:.1f}" y2="{mid:.1f}"/>{"".join(dots)}{tick}</svg>')
 
 
 # ---------------------------------------------------------------- the matrix
@@ -84,7 +99,7 @@ def _matrix(site: Site) -> tuple[str, str]:
 
     # one header row (the column groups are named in each header: "judge" / "review"), so the
     # header cells line up one-to-one with the body cells and the row can stick on its own
-    head = [th("standing", '<span class="sr-only">Place</span><span aria-hidden="true">#</span>', plain="Place", cls="num rk-stick rk-stick-1", sort="ascending"),
+    head = [th("standing", '<span class="sr-only">Standing</span><span aria-hidden="true">#</span>', plain="Standing", cls="num rk-stick rk-stick-1", sort="ascending"),
             th("name", "Candidate", typ="text", cls="rk-stick rk-stick-2")]
     for k, j in enumerate(judges):
         mat = _material(j)
@@ -147,10 +162,15 @@ def _matrix(site: Site) -> tuple[str, str]:
         body.append(f'<tr data-slug="{esc(c.slug)}" data-prompt="{esc(c.prompt)}" data-order="{pos}">{"".join(cells)}</tr>')
 
     caption = "Judge ranks (1 = best), derived mean rank and spread, and phase-1 overall scores per candidate."
-    table = (f'<div class="table-wrap matrix-wrap rk-wrap" tabindex="0" role="region" aria-labelledby="matrix-h">'
+    # .rk-break lets only the matrix grow past the text column on wide screens; .rk-scroller carries the
+    # right-edge fade (rankings.js sets .more-right while columns are hidden to the right)
+    table = (f'<p class="rk-scroll-hint small muted" id="rank-scroll-hint">More columns: scroll sideways '
+             f'<span aria-hidden="true">→</span></p>'
+             f'<div class="rk-break"><div class="rk-scroller" id="rank-scroller">'
+             f'<div class="table-wrap matrix-wrap rk-wrap" tabindex="0" role="region" aria-labelledby="matrix-h">'
              f'<table id="rank-matrix" class="rk-matrix" data-nmax="{nmax}">'
              f'<caption class="sr-only">{esc(caption)}</caption>'
-             f'<thead><tr>{"".join(head)}</tr></thead><tbody>{"".join(body)}</tbody></table></div>')
+             f'<thead><tr>{"".join(head)}</tr></thead><tbody>{"".join(body)}</tbody></table></div></div></div>')
 
     # controls (hidden without JS; rankings.js unhides them)
     prompts = sorted({c.prompt for c in m.candidates}, key=lambda p: (len(p), p))
@@ -183,6 +203,31 @@ def _matrix(site: Site) -> tuple[str, str]:
 
 # ---------------------------------------------------------------- Kendall τ
 
+# Dark-theme ramp for τ: low agreement sits close to the dark surface, high agreement is the lightest,
+# so salience follows the data in both themes (the light theme uses fragments.score_heat).
+_DARK_RAMP = [(31, 38, 51), (37, 55, 86), (48, 79, 128), (70, 112, 176), (110, 152, 214), (162, 194, 238), (212, 227, 250)]
+
+
+def _rel_lum(rgb: tuple[int, int, int]) -> float:
+    def lin(c: int) -> float:
+        c /= 255
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = rgb
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+
+
+def _tau_style(t: float) -> str:
+    """Per-cell custom properties for both themes: --hbg/--hfg (light, the site's single-hue scale)
+    and --dbg/--dfg (dark, the inverted-lightness ramp above). Text colour is picked per cell for contrast."""
+    x = min(1.0, max(0.0, (t + 1) / 2)) * (len(_DARK_RAMP) - 1)
+    i = min(int(x), len(_DARK_RAMP) - 2)
+    f = x - i
+    rgb = tuple(round(a + (b - a) * f) for a, b in zip(_DARK_RAMP[i], _DARK_RAMP[i + 1]))
+    lum = _rel_lum(rgb)
+    fg = "#000000" if (lum + 0.05) / 0.05 >= 1.05 / (lum + 0.05) else "#ffffff"  # pure black: >= 4.58:1 at the crossover
+    return f"{_heatvars(score_heat(t, -1, 1))};--dbg:#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x};--dfg:{fg}"
+
+
 def _kendall(site: Site) -> str:
     m = site.model
     js = m.judges
@@ -194,7 +239,7 @@ def _kendall(site: Site) -> str:
         if t is None:
             return f'<td class="num rk-tau muted">–<span class="rk-n">n={n}</span></td>'
         txt = "1" if diag else f"{t:.2f}".replace("-", "−")
-        return (f'<td class="num rk-tau{" rk-diag" if diag else ""}" style="{_heatvars(score_heat(t, -1, 1))}">'
+        return (f'<td class="num rk-tau{" rk-diag" if diag else ""}" style="{_tau_style(t)}">'
                 f'{txt}<span class="rk-n">n={n}</span></td>')
 
     head = "".join(f'<th scope="col" class="num"><a href="{judge_url(j)}">{esc(j.label)}</a></th>' for j in js)
@@ -226,20 +271,20 @@ def _kendall(site: Site) -> str:
         extremes = (f" Here the closest pair is {esc(hi[0].label)} and {esc(hi[1].label)} (τ = {hi[2]:.2f}); "
                     f"the least similar is {esc(lo[0].label)} and {esc(lo[1].label)} (τ = {lo[2]:.2f}).")
     steps = (-1, -0.5, 0, 0.5, 1)
-    sw = "".join(f'<span class="heat-swatch rk-tau-sw" style="{score_heat(v, -1, 1)}">{fmt_tau(v)}</span>' for v in steps)
+    sw = "".join(f'<span class="heat-swatch rk-tau-sw" style="{_tau_style(v)}">{fmt_tau(v)}</span>' for v in steps)
     tau_legend = (f'<span class="legend-scale" role="note"><span>τ colour</span><span class="heat-swatches" aria-hidden="true">'
-                  f'{sw}</span><span>darker = more agreement</span></span>')
+                  f'{sw}</span><span>stronger colour = more agreement</span></span>')
     return f"""
 <section aria-labelledby="kendall-h">
 <h2 id="kendall-h">How much do the judges agree? <span class="derived">derived</span></h2>
 <p>Kendall’s τ<sub>b</sub> between every pair of judges, computed over the candidates both judges ranked (<em>n</em> per pair):</p>
 <p class="rk-formula"><span>τ<sub>b</sub> = (C − D) /</span> <span>√((C + D + T<sub>x</sub>)(C + D + T<sub>y</sub>))</span></p>
 <p class="small muted">C and D are the numbers of candidate pairs the two judges order the same way (concordant) or the opposite way (discordant); T<sub>x</sub> and T<sub>y</sub> count pairs tied in only one of the two rankings (rankings here have no ties, so τ<sub>b</sub> equals plain Kendall τ). The last column averages a judge’s τ with all the others.</p>
-<p><strong>Reading guide:</strong> 1 = identical order, 0 = unrelated, −1 = exactly reversed; darker cells mean stronger agreement.{extremes}</p>
+<p><strong>Reading guide:</strong> 1 = identical order, 0 = unrelated, −1 = exactly reversed; the stronger the cell colour, the stronger the agreement.{extremes}</p>
 <p class="rk-legend">{tau_legend}</p>
 <div class="table-wrap matrix-wrap" tabindex="0" role="region" aria-labelledby="kendall-h">
 <table class="rk-kendall">
-<caption>Symmetric matrix; the diagonal is 1 by definition (hatched). One blue scale from τ = −1 (lightest) to τ = 1 (darkest); every cell shows its value.</caption>
+<caption>Symmetric matrix; the diagonal is 1 by definition (hatched). One blue scale from τ = −1 (faintest) to τ = 1 (strongest: darkest in the light theme, lightest in the dark theme); every cell shows its value.</caption>
 <thead><tr><th scope="col">Judge</th>{head}<th scope="col" class="num">Mean τ with others</th></tr></thead>
 <tbody>{"".join(rows)}</tbody>
 </table>
@@ -364,8 +409,8 @@ def build(site: Site) -> None:
 <div class="note">
 <ul>
 <li><strong>Rank 1 = best.</strong> Each judge column is one judge’s blind ranking of all candidates it saw. A dash (–) means that judge did not rank that candidate.</li>
-<li><strong>Mean rank</strong> <span class="derived">derived</span> is the arithmetic mean of a candidate’s ranks over the judges that ranked it (over the judges currently shown, when you filter by material). Equal means are ties and are shown as ties: “=1” means shared first place. The place (#) is only given to candidates ranked by every judge; a candidate that some judges did not rank shows how many did (e.g. “4/5 judges”) and is listed after the others.</li>
-<li><strong>Spread</strong> <span class="derived">derived</span> gives the best and worst rank a candidate received (min–max) and σ, the population standard deviation of its ranks across judges: σ = √(Σ(r − mean)² / n). A large σ marks a controversial candidate. In the glyph, each dot is one judge and the tick is the mean.</li>
+<li><strong>Mean rank</strong> <span class="derived">derived</span> is the arithmetic mean of a candidate’s ranks over the judges that ranked it (over the judges currently shown, when you filter by material). Equal means are ties and are shown as ties: “=1” means shared first place. The standing (#) is only given to candidates ranked by every judge; a candidate that some judges did not rank shows how many did (e.g. “4/5 judges”) and is listed after the others.</li>
+<li><strong>Spread</strong> <span class="derived">derived</span> gives the best and worst rank a candidate received (min–max) and σ, the population standard deviation of its ranks across judges: σ = √(Σ(r − mean)² / n). A large σ marks a controversial candidate. In the glyph, the faint end ticks mark rank 1 (left) and the last rank (right), each dot is one judge (equal ranks stack vertically) and the tall tick is the mean.</li>
 <li><strong>Phase-1 scores</strong> are the 1–10 overall scores from separate blind reviews (one reviewer per review type and candidate), not from the judges. Click a score to read the review.</li>
 <li><strong>Judge material:</strong> {", ".join(f"“{x}”" for x in mats)} — static judges read code and/or transcripts only; browser judges used the product hands-on in desktop Chrome.</li>
 <li><strong>v0 and v1</strong> are different prompts; each candidate was judged against its own prompt, in one combined ranking.</li>
@@ -390,7 +435,7 @@ def build(site: Site) -> None:
     site.page("rankings/index.html", "Rankings", body, section="rankings", crumbs=[("Rankings", "rankings/")],
               description="Sortable judge × candidate rank matrix with mean rank, spread, phase-1 scores, "
                           "judge agreement (Kendall τ) and a bump chart.",
-              scripts=["rankings.js"], wide=True)
+              scripts=["rankings.js"])
 
     # search document
     st = m.standing()

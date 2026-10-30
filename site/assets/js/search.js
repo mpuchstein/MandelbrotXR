@@ -177,6 +177,19 @@
         ranked.push({ id, d, score });
       }
       ranked.sort((a, b) => b.score - a.score || a.id - b.id);
+      // An original transcript and its anonymized copy hold the same passage: collapse those into one
+      // result (same length, same term counts, same message context) that links to both.
+      const seen = new Map(), unique = [];
+      for (const r of ranked) {
+        const key = `${lens[r.id]}|${res.map((x) => x.tf.get(r.id)).join(",")}|${docs[r.d][3]}`;
+        const first = seen.get(key);
+        if (first) { first.also.push(r.d); continue; }
+        r.also = [];
+        seen.set(key, r);
+        unique.push(r);
+      }
+      ranked.length = 0;
+      ranked.push(...unique);
       const marks = new Set(res.flatMap((r) => r.terms));
       state = { my, phrases, marks, pending: phrases.length ? ranked : [], accepted: phrases.length ? [] : ranked, shown: 0 };
       await showMore();
@@ -241,15 +254,25 @@
     const [url, title, kind, context] = docs[r.d];
     const li = el("li", "search-result"), head = el("p", "search-result-head"), a = el("a", "search-result-title", title);
     a.href = root + url.replace(/^\/+/, "");
-    head.append(a, " ", el("span", "search-badge", kind));
+    head.append(a);
     const snip = el("p", "search-snippet is-loading", "Loading excerpt…");
     snip.dataset.id = String(r.id);
     const ctx = el("p", "search-context");
-    // keep ISO timestamps on one line (they would otherwise break at their hyphens)
-    context.split(/(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)/).forEach((part, i) => {
+    ctx.append(el("span", "search-badge", kind));
+    // keep timestamps on one line (ISO, or the "29 Oct 2026, 14:22 UTC" form transcripts use)
+    context.split(/(\d{4}-\d{2}-\d{2}T[\d:.]+Z?|\d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}(?: UTC)?)/).forEach((part, i) => {
       if (part) ctx.append(i % 2 ? el("span", "search-time", part) : part);
     });
     li.append(head, ctx, snip);
+    if (r.also && r.also.length) {
+      const also = el("p", "search-also", "Same passage also in: ");
+      r.also.forEach((d, i) => {
+        const x = el("a", "", docs[d][1]);
+        x.href = root + docs[d][0].replace(/^\/+/, "");
+        also.append(i ? ", " : "", x);
+      });
+      li.append(also);
+    }
     if (eager || !observer) fill(snip, s); else observer.observe(snip);
     return li;
   }
@@ -258,7 +281,8 @@
     if (!s || snip.dataset.done) return;
     snip.dataset.done = "1";
     try {
-      const text = (await passage(Number(snip.dataset.id)))[4];
+      // excerpts are plain text: drop Markdown emphasis and code markers (** __ `) the passage carries
+      const text = (await passage(Number(snip.dataset.id)))[4].replace(/\*\*|__|`+/g, "");
       snip.replaceChildren(snippet(text, s.marks));
       snip.classList.remove("is-loading");
     } catch (err) {

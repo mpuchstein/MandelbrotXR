@@ -67,8 +67,44 @@ def crumbs_for(path: str, last: str | None = None) -> list[tuple[str, str]]:
     return out
 
 
+_TD_CODE = re.compile(r"(<td[^>]*>\s*<code>)([^<]*)(</code>)")
+
+
+def _wbr(text_html: str) -> str:
+    """Break opportunities after '/', '_' and '-' in an (already escaped) path or identifier."""
+    return re.sub(r"([/_-])", r"\1<wbr>", text_html)
+
+
+_INLINE_PATH = re.compile(r"(?<!<pre>)(?<!<td>)<code>([^<\s]*/[^<\s]*)</code>")
+
+
+def _path_code(m: re.Match) -> str:
+    """Inline code that is a path: break only after '/', never at a '-' or '_' inside a name (short segments only)."""
+    segs = m.group(1).split("/")
+    if max(len(x) for x in segs) > 32:
+        return m.group(0)
+    return "<code>" + "/<wbr>".join(f'<span class="nw">{x}</span>' if x else "" for x in segs) + "</code>"
+
+
+def _sections(site: Site) -> dict[str, str]:
+    """Top-level folder -> nav section, discovered from the model: candidate folders belong to Candidates,
+    the review/judge/orchestration folders to Judges & reviews. Anything else stays under Transcripts."""
+    out = {}
+    for t in site.transcript_sources():
+        if t.kind in ("review", "judge", "orchestrator", "blind"):
+            out[t.path.split("/", 1)[0]] = "judges"
+    for j in site.model.judges:
+        out[j.dir.split("/", 1)[0]] = "judges"
+    for r in site.model.reviews:
+        out[r.dir.split("/", 1)[0]] = "judges"
+    for c in site.model.candidates:
+        out[c.folder] = "candidates"
+    return out
+
+
 def build(site: Site) -> None:
     repo = site.repo
+    sec_of = _sections(site)
     dirs, files = walk(repo)
     transcripts = {t.path: t for t in site.transcript_sources()}
     products = {c.html_path: c for c in site.model.candidates}
@@ -124,7 +160,7 @@ def build(site: Site) -> None:
         name = posixpath.basename(f)
         d = posixpath.dirname(f)
         head = (f'<h1 class="src-path">{esc(name)}</h1>'
-                f'<ul class="tx-meta src-meta"><li><code>{esc(f)}</code></li><li>{esc(what(f))}</li>'
+                f'<ul class="tx-meta src-meta"><li><code>{_wbr(esc(f))}</code></li><li>{esc(what(f))}</li>'
                 f'<li>in <a href="@/source/{d + "/" if d else ""}">{esc(d + "/" if d else "repository root")}</a></li>'
                 f'<li><a href="{esc(site.gh(f))}" rel="noopener">Original on GitHub at {esc(site.git["sha"][:7])}</a></li></ul>')
         if not text.strip():
@@ -132,11 +168,13 @@ def build(site: Site) -> None:
         elif f.lower().endswith((".md", ".markdown")):
             doc = re.sub(r"<(/?)h([1-6])([\s>])", lambda m: f"<{m.group(1)}h{min(6, int(m.group(2)) + 1)}{m.group(3)}",
                          render_md(site, f, text, id_prefix="md-"))
+            doc = _TD_CODE.sub(lambda m: m.group(1) + _wbr(m.group(2)) + m.group(3), doc)
+            doc = _INLINE_PATH.sub(_path_code, doc)
             body = (head + f'<section class="src-doc" aria-label="Rendered Markdown">{doc}</section>'
                     + '<details class="src-view"><summary>Source with line numbers</summary>' + numbered(text) + '</details>')
         else:
             body = head + numbered(text)
-        site.page(f"source/{f}.html", f"{name} · {d or 'repository root'}", body, section="transcripts",
+        site.page(f"source/{f}.html", f"{name} · {d or 'repository root'}", body, section=sec_of.get(f.split("/", 1)[0], "transcripts"),
                   crumbs=crumbs_for(f, last=name), description=f"Rendered copy of {f} from the MandelbrotXR repository.",
                   scripts=["transcripts.js"])
 
@@ -171,7 +209,7 @@ def build(site: Site) -> None:
         body = (f'<h1 class="src-path">{esc(posixpath.basename(d))}/</h1>'
                 f'<p class="muted src-meta"><code>{esc(d)}/</code> · <a href="@/source/{up + "/" if up else ""}">up to {esc(up or "repository root")}</a>'
                 f' · <a href="{esc(site.gh(d, tree=True))}" rel="noopener">on GitHub</a></p>' + listing(d))
-        site.page(f"source/{d}/index.html", f"{d}/", body, section="transcripts", crumbs=crumbs_for(d),
+        site.page(f"source/{d}/index.html", f"{d}/", body, section=sec_of.get(d.split("/", 1)[0], "transcripts"), crumbs=crumbs_for(d),
                   description=f"Files in {d}/ of the MandelbrotXR repository.")
 
     n_text = len(texts)

@@ -5,9 +5,10 @@
 /* in-page table of contents */
 .meth-toc { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: var(--space-3); margin: 0 0 var(--space-5); }
 .meth-toc .toc-h { font-size: var(--text-sm); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 var(--space-2); font-weight: 600; }
-.meth-toc ol { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-1) var(--space-4); grid-template-columns: repeat(auto-fill, minmax(min(100%, 176px), 1fr)); counter-reset: toc; }
-.meth-toc li { counter-increment: toc; max-width: none; }
-.meth-toc li::before { content: counter(toc) "."; display: inline-block; min-width: 2em; color: var(--muted); font-variant-numeric: tabular-nums; font-size: var(--text-sm); }
+/* column-major (reads down each column), balanced; numbers right-aligned in a fixed slot so labels line up */
+.meth-toc ol { margin: 0; padding: 0; list-style: none; columns: 4 11rem; column-gap: var(--space-4); counter-reset: toc; }
+.meth-toc li { counter-increment: toc; max-width: none; break-inside: avoid; padding: 2px 0; }
+.meth-toc li::before { content: counter(toc) "."; display: inline-block; width: 1.8em; margin-right: var(--space-1); text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: var(--text-sm); }
 .meth-toc a { text-decoration: none; }
 .meth-toc a:hover { text-decoration: underline; }
 
@@ -18,15 +19,18 @@
 .meth-sec .to-top a { color: var(--muted); }
 
 /* caveats */
-.cav-box { max-width: none; padding: var(--space-3) var(--space-4); }
+/* the caveat panel: reading-measure wide, neutral frame; the accent marks only the lead sentence */
+.cav-box { max-width: calc(var(--measure) + 2 * var(--space-4)); padding: var(--space-3) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius); }
+.cav-lead { border-left: 4px solid var(--accent); padding-left: var(--space-3); font-size: var(--text-base); }
 .cav-list { margin: var(--space-3) 0 0; padding-left: 1.4em; }
 .cav-list > li { max-width: var(--measure); margin-bottom: var(--space-4); }
 .cav-list > li:last-child { margin-bottom: 0; }
 .cav h3 { margin: 0 0 var(--space-1); font-size: var(--text-lg); }
-.cav-claim { font-size: var(--text-lg); line-height: 1.45; margin-bottom: var(--space-2); }
-.cav details.fold { background: var(--bg); }
+.cav-claim { font-size: var(--text-base); margin-bottom: var(--space-2); }
+/* one nesting level less: the fold is a plain disclosure, the quotes plain blockquotes */
+.cav details.fold { background: none; border: 0; padding: 0; }
 .cav details.fold > summary { font-size: var(--text-sm); }
-.cav .quote { background: var(--surface); margin-top: var(--space-2); }
+.cav .quote { background: none; margin-top: var(--space-2); padding-block: 0; }
 
 /* plain one-line statement */
 .plain-line { border-left: 4px solid var(--accent); padding: var(--space-2) var(--space-3); background: var(--accent-soft); border-radius: 0 var(--radius) var(--radius) 0; }
@@ -97,8 +101,7 @@
   .cav-box { padding: var(--space-3) var(--space-3) var(--space-3) var(--space-3); }
   .cav-list { padding-left: 1.1em; }
   .cav-claim { font-size: var(--text-base); }
-  .cav details.fold { padding: var(--space-1) var(--space-2); margin-left: -1.1em; }
-  .cav .quote { padding: var(--space-2); }
+  .cav .quote { padding: 0 0 0 var(--space-2); }
   .incident { padding: var(--space-2); }
   .incident .quote { padding: var(--space-2); }
 }

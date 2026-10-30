@@ -32,6 +32,9 @@ KINDS = [  # kind -> (heading, explanation)
     ("blind", "Anonymized transcripts", "The redacted chat transcripts exactly as the transcript reviewers and judges saw them."),
     ("discarded", "Discarded runs", "Runs that were thrown away and redone; kept for the record."),
 ]
+CHIP = {"chat": "Chat", "review": "Review logs", "judge": "Judge logs", "orchestrator": "Orchestrator",
+        "blind": "Anonymized", "discarded": "Discarded"}  # short jump-link labels (fall back to the heading)
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 _ROLE = r"(?:User|Assistant|Tool|System)\b"
 _FIRST_HEAD = re.compile(r"(#{1,6})[ \t]+" + _ROLE)
@@ -43,6 +46,8 @@ _SUMMARY = re.compile(r"\s*<summary>(.*)</summary>\s*$", re.I)
 _TOOL_CALL = re.compile(r"\*\*Tool call `([^`]+)`\*\*(?::\s*(.*))?\s*$")
 _HEADING_TAG = re.compile(r"<(/?)h([1-6])([\s>])")
 _TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}[T ][\d:.]+Z?")
+_TS_PARTS = re.compile(r"(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})")
+_MSG_TS = re.compile(r"\(message \d+, (" + _TIMESTAMP.pattern + r")\)")
 _HR = re.compile(r" {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$")
 
 
@@ -287,6 +292,48 @@ def render_body(body: str, link) -> str:
     return _demote("\n".join(parts), 3)
 
 
+def fmt_ts(iso: str) -> str:
+    """'2026-10-29T14:22:49.128498Z' -> '29 Oct 2026, 14:22 UTC' (deterministic; the ISO value is kept in datetime/title)."""
+    m = _TS_PARTS.match(iso)
+    if not m:
+        return iso
+    y, mo, d, hh, mm = m.groups()
+    return f"{int(d)} {_MONTHS[int(mo) - 1]} {y}, {hh}:{mm}" + (" UTC" if iso.endswith("Z") else "")
+
+
+def meta_parts(meta: str) -> list[tuple[str, str]]:
+    """The heading's meta split into ('text', s) and ('ts', iso) parts. The '(message N, <time>)' form some
+    exports use (a 0-based counter of the exporting tool) is reduced to its time, so the only visible message
+    number is the 1-based '#n'; the full heading stays in the time element's title."""
+    m = _MSG_TS.fullmatch(meta.strip())
+    if m:
+        return [("ts", m.group(1))]
+    out, pos = [], 0
+    for t in _TIMESTAMP.finditer(meta):
+        if t.start() > pos:
+            out.append(("text", meta[pos:t.start()]))
+        out.append(("ts", t.group(0)))
+        pos = t.end()
+    if pos < len(meta):
+        out.append(("text", meta[pos:]))
+    return out
+
+
+def meta_html(meta: str) -> str:
+    return "".join(esc(v) if k == "text" else
+                   f'<time class="tx-time" datetime="{esc(v)}" title="{esc(meta.strip())}">{esc(fmt_ts(v))}</time>'
+                   for k, v in meta_parts(meta))
+
+
+def meta_text(meta: str) -> str:
+    return "".join(v if k == "text" else fmt_ts(v) for k, v in meta_parts(meta)).strip()
+
+
+def path_html(path: str) -> str:
+    """A repo path that breaks only after '/': each segment is kept whole (.nw), with <wbr> after each slash."""
+    return "/<wbr>".join(f'<span class="nw">{esc(seg)}</span>' for seg in path.split("/"))
+
+
 def role_class(role: str) -> str:
     r = role.lower()
     return "user" if r.startswith("user") else "tool" if r.startswith("tool") else "system" if r.startswith("system") else "assistant"
@@ -298,7 +345,7 @@ def render_msg(m: Msg, link) -> str:
         body = (f'<details class="fold fold-thinking"><summary><span class="fold-kind">{esc(m.meta)}</span>'
                 f' <span class="fold-size">{esc(_size(m.body))}</span></summary>\n{body}</details>')
     # the meta goes on its own line below the role (CSS); timestamps never break at their hyphens
-    meta = f' <span class="msg-meta">{_TIMESTAMP.sub(lambda t: f"<span class=tx-time>{t.group(0)}</span>", esc(m.meta))}</span>' if m.meta else ""
+    meta = f' <span class="msg-meta">{meta_html(m.meta)}</span>' if m.meta else ""
     return (f'<article class="msg msg-{role_class(m.role)}" id="m-{m.n}" data-line="{m.line}">'
             f'<header class="msg-head"><h3 class="msg-title"><span class="msg-role">{esc(m.role)}</span>{meta}</h3>'
             f'<a class="msg-num" href="#m-{m.n}" title="Permalink to message {m.n}">#{m.n}</a></header>'
@@ -385,7 +432,7 @@ def related(site: Site, src: TranscriptSource) -> list[str]:
     m, out = site.model, []
     if src.slug and src.kind in ("chat", "review", "blind"):
         c = m.cand(src.slug)
-        out.append(f'<a href="{cand_url(c)}">Candidate: {esc(c.name)}</a>')
+        out.append(f'<a href="{cand_url(c)}">Candidate: {esc(c.label)}</a>')
     if src.kind == "review":
         r = next((r for r in m.reviews if r.files.get("TRANSCRIPT.md") == src.path), None)
         if r:
@@ -413,7 +460,8 @@ def build_transcript(site: Site, t: Transcript) -> None:
     link = md_link(site, src.path)
     n_pages = max(1, len(t.pages))
     crumbs_base = [("Transcripts", "transcripts/")]
-    facts = (f'<ul class="tx-meta"><li>{site.evidence(src.path, src.path)}</li>'
+    ev = site.evidence(src.path, src.path).replace(f">{esc(src.path)}</a>", f">{path_html(src.path)}</a>", 1)
+    facts = (f'<ul class="tx-meta"><li>{ev}</li>'
              f'<li>{len(t.msgs):,} message{"s" if len(t.msgs) != 1 else ""} · {t.lines:,} lines'
              f'{f" · {n_pages} pages" if n_pages > 1 else ""}</li>')
     rel = related(site, src)
@@ -457,7 +505,8 @@ def build_transcript(site: Site, t: Transcript) -> None:
         text = md.to_text(m.body)
         if len(text) > SEARCH_CAP:
             text = text[:SEARCH_CAP].rstrip() + " …"
-        site.search_doc(url, src.title, "transcript", f"#{m.n} {m.heading}", text)
+        mt = meta_text(m.meta)
+        site.search_doc(url, src.title, "transcript", f"#{m.n} {m.role}" + (f" · {mt}" if mt else ""), text)
 
 
 def build_index(site: Site, ts: list[Transcript]) -> None:
@@ -475,7 +524,7 @@ def build_index(site: Site, ts: list[Transcript]) -> None:
              'results were cut, or that personal data was redacted, that happened when the transcript was extracted, before '
              'this site was built. Every page links to its file on GitHub at the build commit.</p>',
              '<nav class="tx-kinds" aria-label="Transcript kinds"><ul>' + "".join(
-                 f'<li><a class="chip" href="#{k}">{esc(h)} ({len(by_kind[k])})</a></li>'
+                 f'<li><a class="chip" href="#{k}">{esc(CHIP.get(k, h))} ({len(by_kind[k])})</a></li>'
                  for k, h, _ in KINDS if k in by_kind) + '<li><a class="chip" href="@/source/">All source files</a></li></ul></nav>']
 
     def stats(t: Transcript) -> str:
@@ -487,13 +536,14 @@ def build_index(site: Site, ts: list[Transcript]) -> None:
                 f'<td class="num">{len(t.msgs)}</td><td class="num">{t.lines:,}</td><td class="num">{len(t.pages) or 1}</td>'
                 f'<td><a class="gh" href="{esc(site.gh(t.src.path))}" rel="noopener">GitHub</a></td></tr>')
 
-    head = ('<thead><tr><th scope="col">Transcript</th><th scope="col" class="num">Messages</th>'
+    head = ('<colgroup><col class="c-name"><col class="c-msgs"><col class="c-lines"><col class="c-pages"><col class="c-src"></colgroup>'
+            '<thead><tr><th scope="col">Transcript</th><th scope="col" class="num">Messages</th>'
             '<th scope="col" class="num">Lines</th><th scope="col" class="num">Pages</th><th scope="col">Source</th></tr></thead>')
     for kind, heading, expl in KINDS:
         items = by_kind.get(kind)
         if not items:
             continue
-        parts.append(f'<section id="{kind}"><h2>{esc(heading)}</h2><p class="muted">{esc(expl)}</p>')
+        parts.append(f'<section id="{kind}"><h2>{esc(heading)}</h2><p class="sec-lede">{esc(expl)}</p>')
         if kind == "review":
             types = [(tid_, label) for tid_, _, label in m.review_types]
             cell: dict[tuple[str, str], Transcript] = {}
@@ -511,14 +561,16 @@ def build_index(site: Site, ts: list[Transcript]) -> None:
                                f'<a class="gh small" href="{esc(site.gh(t.src.path))}" rel="noopener">GitHub</a></td>'
                                if t else '<td class="muted">–</td>')
                 rows.append(f'<tr><th scope="row"><a href="{cand_url(m.cand(s))}">{esc(m.cand(s).label)}</a></th>{"".join(tds)}</tr>')
-            parts.append('<div class="table-wrap matrix-wrap" role="region" aria-label="Review agent logs: candidate × review type">'
-                         '<table class="tx-matrix"><caption>Review agent logs by candidate (rows) and '
-                         'review type (columns).</caption><thead><tr><th scope="col">Candidate</th>'
+            parts.append('<div class="table-wrap matrix-wrap scroll-hint tx-wrap" role="region" aria-label="Review agent logs: candidate × review type">'
+                         '<table class="tx-matrix"><caption class="sr-only">Review agent logs by candidate (rows) and '
+                         'review type (columns)</caption><thead><tr><th scope="col">Candidate</th>'
                          + "".join(f'<th scope="col">{esc(lab)} review</th>' for _, lab in types)
-                         + f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
+                         + f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
+                         '<p class="small muted tx-cap">Rows: candidates; columns: review types. Each cell is one '
+                         'review agent log (messages · lines) with its GitHub copy.</p>')
             rest = [t for t in items if t not in cell.values()]
             if rest:
-                parts.append(f'<div class="table-wrap" role="region" aria-label="{esc(heading)}: other logs"><table class="tx-list">{head}<tbody>{"".join(row(t, esc(t.src.title)) for t in rest)}</tbody></table></div>')
+                parts.append(f'<div class="table-wrap tx-wrap" role="region" aria-label="{esc(heading)}: other logs"><table class="tx-list">{head}<tbody>{"".join(row(t, esc(t.src.title)) for t in rest)}</tbody></table></div>')
         else:
             body = []
             for t in items:
@@ -531,7 +583,7 @@ def build_index(site: Site, ts: list[Transcript]) -> None:
                 elif kind == "judge":
                     label = esc(t.src.title.removesuffix(" judge agent log")) + " judge"
                 body.append(row(t, label))
-            parts.append(f'<div class="table-wrap" role="region" aria-label="{esc(heading)}"><table class="tx-list">{head}<tbody>{"".join(body)}</tbody></table></div>')
+            parts.append(f'<div class="table-wrap tx-wrap" role="region" aria-label="{esc(heading)}"><table class="tx-list">{head}<tbody>{"".join(body)}</tbody></table></div>')
         parts.append('</section>')
     site.page("transcripts/index.html", "Transcripts", "\n".join(parts), section="transcripts", crumbs=[("Transcripts", "")],
               description="Rendered chat transcripts and agent logs of the MandelbrotXR experiment, with an anchor per message.")

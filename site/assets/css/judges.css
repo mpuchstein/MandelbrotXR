@@ -20,6 +20,9 @@
   content: ""; position: absolute; left: 50%; top: -35%; width: 2px; height: 170%; background: currentColor; transform: translateX(-50%) rotate(45deg);
 }
 .jr-letter { font-family: var(--mono); font-weight: 700; }
+/* the letter (or revealed candidate) is the row's key: as large as the rank numeral it pairs with */
+.jr-ranking td.jr-cand { font-size: var(--text-base); font-weight: 600; font-variant-numeric: tabular-nums; }
+.jr-ranking td.jr-cand .jr-letter, .jr-mapping th.jr-letter { font-size: var(--text-lg); }
 td.jr-cand, .jr-nowrap { white-space: nowrap; }
 .jr-h1-reveal { color: var(--fg); padding: 0 var(--space-1); }
 .jr-h1-reveal::before { content: "= "; color: var(--muted); }
@@ -36,30 +39,48 @@ td.jr-cand, .jr-nowrap { white-space: nowrap; }
 .jr-count { font-size: .8em; font-weight: 500; }
 .jr-toc ul { list-style: none; padding: 0; margin: 0 0 var(--space-3); display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .jr-toc li { max-width: none; }
-.jr-toc a { display: inline-block; padding: var(--space-1) var(--space-3); border: 1px solid var(--border); border-radius: 999px; font-size: var(--text-sm); text-decoration: none; background: var(--surface); }
-.jr-toc a:hover { border-color: var(--accent); }
-.jr-tag { display: inline-block; font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 0 var(--space-1); border-radius: var(--radius-sm); border: 1px solid currentColor; }
-.jr-tag-browser { color: var(--fg); }
-.jr-tag-static { color: var(--muted); border-style: dashed; }
+/* in-page jump links: one chip style on every page of this group (also .tx-kinds on transcripts/) */
+.jr-toc a, .tx-kinds a.chip { display: inline-block; padding: var(--space-1) var(--space-3); border: 1px solid var(--border); border-radius: 999px; font-size: var(--text-sm); line-height: var(--leading); text-decoration: none; background: var(--surface); color: var(--accent); margin: 0; }
+.jr-toc a:hover, .tx-kinds a.chip:hover { border-color: var(--accent); }
+/* mode tags: both solid; browser = filled, static = outline in muted text */
+.jr-tag { display: inline-block; font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 0 var(--space-1); border-radius: var(--radius-sm); border: 1px solid var(--border-strong); }
+.jr-tag-browser { color: var(--fg); background: var(--surface-2); }
+.jr-tag-static { color: var(--muted); }
 
-/* ---- tables */
-.jr-narrow { max-width: 832px; }
-.jr-ranking td.jr-rank { font-weight: 700; font-size: var(--text-base); width: 56px; }
+/* one section-lede style for every H2 intro on these pages (captions stay at the small size) */
+.sec-lede { font-size: var(--text-base); color: var(--muted); max-width: var(--measure); }
+.jr-cap { max-width: var(--measure); margin-top: calc(-1 * var(--space-2)); }
+
+/* ---- tables: two widths only, the reading measure (narrow tables) and the full content width (data tables) */
+.jr-narrow, .jr-matrix-block, .jr-overall { max-width: var(--measure); }
+.jr-ranking td.jr-rank { font-weight: 700; font-size: var(--text-lg); width: 56px; }
 .jr-ranking td.jr-just { min-width: 256px; max-width: var(--measure); }
 .jr-judges td, .jr-judges th { min-width: 112px; }
 .jr-judges td:nth-child(2), .jr-judges td:nth-child(3) { min-width: 208px; }
-.table-wrap:has(> .jr-matrix) { width: fit-content; }
-.jr-matrix { width: auto; }
-.jr-matrix thead th.num { text-align: center; min-width: 96px; }
-.table-wrap:has(> .jr-ranking) { max-width: 1024px; }
-.jr-matrix td.jr-score { position: relative; text-align: center; font-weight: 700; padding: 0; }
+.jr-matrix thead th.num { text-align: center; min-width: 88px; }
+.jr-matrix td.jr-score { position: relative; text-align: center; vertical-align: middle; font-weight: 700; padding: 0; background: var(--hb); color: var(--hf); }
+.jr-swatch { display: inline-block; min-width: 28px; text-align: center; font-size: var(--text-xs); font-weight: 700; font-variant-numeric: tabular-nums; background: var(--hb); color: var(--hf); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .jr-matrix td.jr-score, :root:not([data-theme="light"]) .jr-swatch { background: var(--hbd); color: var(--hfd); }
+}
+:root[data-theme="dark"] .jr-matrix td.jr-score, :root[data-theme="dark"] .jr-swatch { background: var(--hbd); color: var(--hfd); }
+.jr-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); color: var(--muted); margin: 0 0 var(--space-2); }
+.jr-swatches { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.jr-bid { display: none; }
 .jr-matrix td.jr-score a { display: block; padding: var(--space-2) var(--space-3); color: inherit; text-decoration: none; }
 .jr-matrix td.jr-score a:hover, .jr-matrix td.jr-score a:focus-visible { text-decoration: underline; }
 .jr-matrix td.jr-score a:focus-visible { outline-offset: -3px; }
 .jr-matrix th[scope="row"] { white-space: nowrap; font-weight: 500; }
-.jr-matrix td code { white-space: nowrap; }
+.jr-matrix td code, .jr-bid code { white-space: nowrap; }
 code.jr-line { white-space: pre-wrap; overflow-wrap: anywhere; }
-.jr-list td:last-child { min-width: 224px; }
+.jr-list td.jr-l-src { min-width: 224px; }
+.jr-l-cand { white-space: nowrap; }
+.jr-l-lbl { display: none; }
+/* one accent link per row: the row title; the other links in the row use the text colour (accent on hover) */
+.jr-list th[scope="row"], .jr-judges th[scope="row"] { font-weight: 500; }
+.jr-list td a, .jr-judges td a, .jr-matrix th[scope="row"] a { color: var(--fg); }
+.jr-list td a:hover, .jr-judges td a:hover, .jr-matrix th[scope="row"] a:hover { color: var(--accent); }
+.jr-list td .evidence .gh, .jr-judges td .evidence .gh { color: var(--muted); }
 
 /* ---- phases */
 .jr-two { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 352px), 1fr)); margin-bottom: var(--space-3); }
@@ -78,7 +99,8 @@ code.jr-line { white-space: pre-wrap; overflow-wrap: anywhere; }
 /* ---- prompts, review body (no inner scroll: folded in <details>, wrapped) */
 pre.jr-prompt { white-space: pre-wrap; overflow-wrap: anywhere; max-width: var(--measure); }
 .jr-review .md h2 { font-size: var(--text-lg); }
-.jr-review .md td { font-variant-numeric: tabular-nums; }
+/* tabular figures only in the numeric columns (td.num): applied to text, they widen hyphens */
+.jr-review .md td.num, .jr-review .md th.num { text-align: right; white-space: nowrap; }
 .jr-review .md td:last-child { overflow-wrap: anywhere; }
 @media (max-width: 30rem) { .jr-review .md th, .jr-review .md td { padding: var(--space-2); } }
 .jr-review .md th { white-space: normal; }
@@ -99,7 +121,7 @@ pre.jr-prompt { white-space: pre-wrap; overflow-wrap: anywhere; max-width: var(-
 /* ---- narrow screens: compact sticky bar, stacked ranking rows (justification below, full width) */
 @media (max-width: 40rem) {
   .reveal-bar { padding: var(--space-1) 0; }
-  .reveal-bar .reveal-status { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .reveal-bar .reveal-status { font-size: var(--text-xs); flex: 1 1 12rem; }
   .reveal-btn { min-height: 44px; padding: var(--space-1) var(--space-3); }
   .jr-ranking thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .jr-ranking tbody tr { display: grid; grid-template-columns: 40px 1fr auto; align-items: baseline; border-bottom: 1px solid var(--border); }
@@ -116,4 +138,36 @@ pre.jr-prompt { white-space: pre-wrap; overflow-wrap: anywhere; max-width: var(-
   table.jr-list th:nth-child(1) { width: 26%; }
   table.jr-list th:nth-child(2) { width: 24%; }
   table.jr-list th:nth-child(3) { width: 10%; }
+}
+
+/* ---- narrow screens: data first. The matrix drops its Blind id column (shown under the name);
+   the judges and review tables become one card per row, captions sit below the tables. */
+@media (max-width: 40rem) {
+  .jr-matrix .jr-bid-col { display: none; }
+  .jr-bid { display: block; margin-top: var(--space-1); font-size: var(--text-xs); }
+  .jr-matrix th[scope="row"] { white-space: normal; width: 52%; }
+  .jr-matrix thead th.num { min-width: 0; padding-inline: var(--space-2); }
+  .jr-matrix td.jr-score a { padding: var(--space-2) var(--space-2); }
+
+  .jr-judges thead, .jr-list thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .jr-judges, .jr-judges tbody, .jr-list tbody { display: block; }
+  .jr-list { display: flex; flex-direction: column; }
+  .jr-list caption { display: block; order: 2; border-top: 1px solid var(--border); }
+  .jr-judges tbody tr, .jr-list tbody tr { display: grid; grid-template-columns: 1fr auto; gap: 0 var(--space-2); align-items: baseline; padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); }
+  .jr-judges tbody tr:last-child, .jr-list tbody tr:last-child { border-bottom: 0; }
+  .jr-judges tbody th, .jr-judges tbody td, .jr-list tbody th, .jr-list tbody td { padding: 0; border: 0; min-width: 0; }
+  .jr-judges tbody th { font-size: var(--text-base); font-weight: 600; }
+  .jr-judges td.jr-j-mode { grid-column: 2; grid-row: 1; justify-self: end; }
+  .jr-judges td.jr-j-first, .jr-judges td.jr-j-last { grid-column: 1 / -1; margin-top: var(--space-1); }
+  .jr-judges td.jr-j-mat, .jr-judges td.jr-j-focus { grid-column: 1 / -1; color: var(--muted); font-size: var(--text-xs); margin-top: var(--space-1); }
+  .jr-judges td.jr-j-log { grid-column: 1 / -1; margin-top: var(--space-1); font-size: var(--text-xs); }
+  .jr-judges td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); font-weight: 600; }
+  .jr-judges td.jr-j-mat, .jr-judges td.jr-j-focus { order: 5; }
+  .jr-judges td.jr-j-log { order: 6; }
+
+  .jr-list th[scope="row"] { grid-column: 1 / -1; }
+  .jr-list td.jr-l-cand { white-space: normal; margin-top: var(--space-1); }
+  .jr-list td.jr-l-score { text-align: right; white-space: nowrap; margin-top: var(--space-1); font-weight: 600; }
+  .jr-l-lbl { display: inline; color: var(--muted); font-weight: 400; }
+  .jr-list td.jr-l-src { grid-column: 1 / -1; min-width: 0; margin-top: var(--space-1); font-size: var(--text-xs); }
 }

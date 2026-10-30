@@ -20,10 +20,10 @@ details.tx-index > summary { cursor: pointer; font-weight: 600; padding: var(--s
 .ix-first { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .tx-kinds ul { list-style: none; padding: 0; margin: 0 0 var(--space-3); display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .tx-kinds li { max-width: none; }
-.tx-kinds .chip { font-size: var(--text-sm); padding: var(--space-1) var(--space-3); margin: 0; }
+/* (.tx-kinds chips share the jump-link style defined with .jr-toc in judges.css) */
 
 /* ---- controls */
-.tx-tools { position: sticky; top: 0; z-index: 4; background: var(--bg); padding: var(--space-2) 0; border-bottom: 1px solid var(--border); }
+.tx-tools { max-width: calc(var(--measure) + var(--space-5)); position: sticky; top: 0; z-index: 4; background: var(--bg); padding: var(--space-2) 0; border-bottom: 1px solid var(--border); }
 .tx-tools .btn { min-height: 40px; padding: var(--space-1) var(--space-3); font-size: var(--text-sm); }
 .tx-jump { display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; font-size: var(--text-sm); }
 .tx-jump input { width: 6.5em; min-height: 40px; font: inherit; padding: var(--space-1) var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--fg); }
@@ -67,6 +67,8 @@ details.tx-index > summary { cursor: pointer; font-weight: 600; padding: var(--s
 .msg-tool .msg-body details.fold { background: var(--surface); }
 .msg-body details > summary { display: block; list-style: none; padding: var(--space-1) 0; font-weight: 400; font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .msg-body details > summary::-webkit-details-marker { display: none; }
+/* tool names: one chip style in call and result rows; "Tool call" / "Tool result" tells them apart */
+.msg-body details > summary code { font-weight: 600; color: var(--fg); background: var(--surface-2); border: 1px solid var(--border); }
 .msg-body details > summary::before { content: "▸"; display: inline-block; width: 1.1em; color: var(--muted); }
 .msg-body details[open] > summary::before { content: "▾"; }
 .msg-body details[open] > summary { white-space: normal; border-bottom: 1px solid var(--border); margin-bottom: var(--space-2); }
@@ -77,10 +79,39 @@ details.tx-index > summary { cursor: pointer; font-weight: 600; padding: var(--s
 .fold-size::before { content: "· "; }
 .fold-thinking > summary .fold-kind { font-style: italic; }
 
-/* ---- transcripts index */
+/* ---- transcripts index: every table shares one width and fixed column widths, so the numeric
+   columns line up down the page; row titles are regular-weight links */
+.tx-wrap { max-width: 60rem; }
+.tx-cap { max-width: var(--measure); margin-top: calc(-1 * var(--space-2)); }
 .tx-matrix td { white-space: nowrap; font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
-.tx-matrix th[scope="row"], .tx-list th[scope="row"] { white-space: nowrap; }
+.tx-matrix th[scope="row"], .tx-list th[scope="row"] { white-space: nowrap; font-weight: 500; }
 .tx-matrix .gh, td .gh { color: var(--muted); }
+@media (min-width: 40rem) {
+  table.tx-list { table-layout: fixed; }
+  table.tx-list col.c-msgs, table.tx-list col.c-lines { width: 8rem; }
+  table.tx-list col.c-pages { width: 6rem; }
+  table.tx-list col.c-src { width: 7rem; }
+  table.tx-list th[scope="row"] { overflow-wrap: anywhere; white-space: normal; }
+  table.tx-list td:last-child, table.tx-list th:last-child { padding-left: var(--space-4); }
+}
+/* narrow screens: one rule for every list table (Pages and Source drop; both are on each transcript page),
+   names wrap; the candidate × type matrix scrolls with an edge shadow and wraps its cells */
+@media (max-width: 39.99rem) {
+  table.tx-list th:nth-child(4), table.tx-list td:nth-child(4), table.tx-list th:nth-child(5), table.tx-list td:nth-child(5) { display: none; }
+  table.tx-list th[scope="row"] { white-space: normal; }
+  .tx-matrix th[scope="row"] { white-space: normal; min-width: 7rem; }
+  .tx-matrix td { white-space: normal; min-width: 7.5rem; }
+  .tx-matrix td .gh { display: block; }
+}
+/* scroll affordance: an edge shadow shows while more columns are hidden on that side */
+.scroll-hint, .src-doc .table-wrap {
+  background:
+    linear-gradient(to right, var(--surface) 30%, transparent) left center / 32px 100% no-repeat local,
+    linear-gradient(to left, var(--surface) 30%, transparent) right center / 32px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--fg) 22%, transparent), transparent) left center / 12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--fg) 22%, transparent), transparent) right center / 12px 100% no-repeat scroll,
+    var(--surface);
+}
 
 /* ---- source files */
 .src-meta { font-size: var(--text-sm); }
@@ -115,5 +146,20 @@ pre.src > code > span[id] { scroll-margin-top: 25vh; }
 .pager .pg-next { grid-area: next; justify-self: end; }
 .pager ol { grid-area: pages; justify-content: center; }
 @media (min-width: 48rem) { .pager { grid-template-columns: 1fr auto 1fr; grid-template-areas: "prev pages next"; } }
-/* folder names and paths in rendered tables stay on one line; the table scrolls in its own container */
-.src-doc .md td code, .tx-intro .md td code { white-space: nowrap; }
+/* rendered documents: prose keeps the reading measure (p/li), tables use the full card width */
+.src-doc .md { max-width: none; }
+/* folder names in rendered tables: one line on wide screens; on phones they break only after / _ - (<wbr>) */
+@media (min-width: 40rem) { .src-doc .md td code, .tx-intro .md td code { white-space: nowrap; } }
+@media (max-width: 39.99rem) {
+  .src-doc { border: 0; padding: 0; background: none; }
+  .src-doc .md td code { overflow-wrap: normal; word-break: normal; }
+  .src-doc .md td:first-child { min-width: 9rem; max-width: 10rem; }
+}
+
+/* narrow screens: summaries wrap to two lines instead of a one-line ellipsis; flatter message cards */
+@media (max-width: 39.99rem) {
+  .msg { padding: var(--space-2) var(--space-2) var(--space-1); border-left-width: 3px; }
+  .msg-body details.fold, .msg-body details { padding: 0 var(--space-2); }
+  .msg-body details:not([open]) > summary { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+}
+.nw { white-space: nowrap; }

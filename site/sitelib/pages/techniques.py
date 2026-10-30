@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 
 from .. import md
 from ..data import DataError
-from ..fragments import cand_url, judge_url, md_link, review_url
+from ..fragments import cand_url, judge_url, md_link, review_url, score_heat
 from ..layout import Site, esc
 
 ORDER = 500
@@ -271,7 +271,8 @@ def _technique_section(site: Site, t: Technique, prim: list[Item], sec: list[Ite
 def _matrix(site: Site, techs: list[Technique], prim: dict[str, list[Item]]) -> str:
     m = site.model
     cands = m.ordered()
-    head = "".join(f'<th scope="col" class="num"><a href="{cand_url(c)}">{esc(c.label)}</a></th>' for c in cands)
+    head = "".join(f'<th scope="col" class="num"><a href="{cand_url(c)}">{_head_label(c.label)}</a></th>' for c in cands)
+    hi = max((sum(1 for it in prim.get(t.id, []) if c.slug in it.s.slugs) for t in techs for c in cands), default=1)
     rows, col_tot = [], {c.slug: 0 for c in cands}
     for t in techs:
         items = prim.get(t.id, [])
@@ -282,7 +283,7 @@ def _matrix(site: Site, techs: list[Technique], prim: dict[str, list[Item]]) -> 
             n = sum(1 for it in items if c.slug in it.s.slugs)
             col_tot[c.slug] += n
             if n:
-                cells.append(f'<td class="num tq-hit"><a href="#t-{t.id}" aria-label="{esc(t.name)}: {esc(c.label)}, '
+                cells.append(f'<td class="num tq-hit" style="{_count_heat(n, hi)}"><a href="#t-{t.id}" aria-label="{esc(t.name)}: {esc(c.label)}, '
                              f'{_plural(n, "bullet")}"><span aria-hidden="true">✓</span>&#8239;{n}</a></td>')
             else:
                 cells.append('<td class="num tq-none"><span aria-hidden="true">–</span><span class="sr-only">none</span></td>')
@@ -290,7 +291,10 @@ def _matrix(site: Site, techs: list[Technique], prim: dict[str, list[Item]]) -> 
                     f'<td class="num tq-tot">{len(items)}</td></tr>')
     foot = "".join(f'<td class="num tq-tot">{col_tot[c.slug]}</td>' for c in cands)
     total = sum(len(v) for v in prim.values())
-    return f"""<div class="table-wrap matrix-wrap tq-matrix-wrap" tabindex="0" role="region" aria-label="Candidate by technique matrix (scrolls)">
+    note = (f'<span class="muted tq-scroll-note"> The table shows {_plural(len(rows), "technique")} × '
+            f'{_plural(len(cands), "candidate")}; scroll inside it, sideways and down.</span>')
+    return f"""<p class="small tq-legend-p">{_count_legend(hi)}{note}</p>
+<div class="table-wrap matrix-wrap tq-matrix-wrap" tabindex="0" role="region" aria-label="Candidate by technique matrix (scrolls)">
 <table class="tq-matrix">
 <caption>Number of special-element bullets crediting each candidate, by primary technique. Columns in order of mean rank {DERIVED}
 (the average of the judges’ ranks; left = best). A bullet that names several candidates counts once for each; the Bullets column counts each bullet once.</caption>
@@ -298,6 +302,32 @@ def _matrix(site: Site, techs: list[Technique], prim: dict[str, list[Item]]) -> 
 <tbody>{"".join(rows)}</tbody>
 <tfoot><tr><th scope="row">Credits per candidate</th>{foot}<td class="num tq-tot">{total}</td></tr></tfoot>
 </table></div>"""
+
+
+def _head_label(label: str) -> str:
+    """Column header: the model part may wrap, the trailing ' · <variant>' gets its own line (never split)."""
+    name, sep, var = label.rpartition(" · ")
+    if not sep:
+        return esc(label)
+    return f'{esc(name)} <span class="tq-cv">· {esc(var)}</span>'
+
+
+def _count_heat(n: int, hi: int) -> str:
+    """Single-hue fill for a credit count, the same blue scale as the score heatmaps; 1 is light, hi darkest."""
+    return score_heat(n, 0, max(1, hi))
+
+
+def _count_legend(hi: int) -> str:
+    sw = "".join(f'<span class="heat-swatch" style="{_count_heat(n, hi)}">{n}</span>' for n in range(1, hi + 1))
+    return (f'<span class="legend-scale tq-legend"><span>Shading darkens with the count:</span>'
+            f'<span class="heat-swatches" aria-hidden="true">{sw}</span></span>')
+
+
+def _index_item(t: Technique, n: int) -> str:
+    """Index entry; the count stays on the line of the label's last word."""
+    head, _sp, last = t.name.rpartition(" ")
+    return (f'<li><a href="#t-{t.id}">{esc(head) + " " if head else ""}<span class="tq-nw">{esc(last)}</span></a>'
+            f'<span class="tq-nw"> <span class="muted small tq-idx-n">{n}</span></span></li>')
 
 
 def _rules_details() -> str:
@@ -491,9 +521,7 @@ def build(site: Site) -> None:
               + "; ".join(f"{it.judge.id}#{it.n}" for it in others))
 
     nj = sum(1 for j in m.judges if j.special)
-    index = "".join(
-        f'<li><a href="#t-{t.id}">{esc(t.name)}</a> <span class="muted small tq-idx-n">{len(prim.get(t.id, []))}</span></li>'
-        for t in shown)
+    index = "".join(_index_item(t, len(prim.get(t.id, []))) for t in shown)
     sections = "".join(_technique_section(site, t, prim.get(t.id, []), sec.get(t.id, []), by_id) for t in shown)
     mm_html, mm_text = _mismatches(site)
     judge_links = ", ".join(f'<a href="{judge_url(j)}">{esc(j.label)}</a>' for j in m.judges if j.special)

@@ -184,11 +184,12 @@ def build_index(site: Site) -> None:
     sug = suggestions(m)
     cards = "".join(
         f'<li class="card cmp-sug"><p class="cmp-sug-k">{esc(title)}</p>'
-        f'<p class="cmp-sug-pair"><a href="{compare_url(a, b)}">{esc(a.label)} <span class="muted">vs</span> {esc(b.label)}</a></p>'
+        f'<p class="cmp-sug-pair"><a href="{compare_url(a, b)}"><span class="cmp-nw">{esc(a.label)}</span> <span class="muted">vs</span> '
+        f'<span class="cmp-nw">{esc(b.label)}</span></a></p>'
         f'<p class="small muted">{reason}</p></li>' for a, b, title, reason in sug)
     groups = []
     for a in cs:
-        links = "".join(f'<li><a href="{compare_url(a, b)}"><span class="sr-only">{esc(a.label)} </span>vs {esc(b.label)}</a></li>'
+        links = "".join(f'<li><a href="{compare_url(a, b)}"><span class="sr-only">{esc(a.label)} </span>vs <span class="cmp-nw">{esc(b.label)}</span></a></li>'
                         for b in cs if b.slug != a.slug)
         groups.append(f'<section class="cmp-group" aria-labelledby="g-{esc(a.slug)}">'
                       f'<h3 id="g-{esc(a.slug)}"><span class="cmp-dot" style="--side:{cat(a.index)}" aria-hidden="true"></span>'
@@ -237,10 +238,10 @@ def _card(site: Site, side: str, c) -> str:
     return f"""<article class="cmp-card">
 <p class="cmp-side-h">{_tag(side, c)}<span class="sr-only">Candidate {side}:</span></p>
 {thumb}
-<h3 class="cmp-name"><a href="{cand_url(c)}">{esc(c.name)}</a> {prompt_badge(c.prompt)}</h3>
+<h3 class="cmp-name"><a href="{cand_url(c)}">{esc(c.label)}</a> {prompt_badge(c.prompt)}</h3>
 <p class="small muted cmp-sub">{esc(c.vendor)} · {esc(c.product)}</p>
 {rank}
-<p class="cmp-btns"><a class="btn btn-primary" href="{play_url(c)}">Play<span class="sr-only"> {esc(c.label)}</span></a>
+<p class="cmp-btns"><a class="btn" href="{play_url(c)}">Play<span class="sr-only"> {esc(c.label)}</span></a>
 <a class="btn" href="{cand_url(c)}">Candidate page<span class="sr-only">: {esc(c.label)}</span></a></p>
 </article>"""
 
@@ -329,51 +330,71 @@ candidate's judge ranks; spread {DERIVED} = lowest–highest rank and the popula
 quoted from each judge's <code>RANKING.md</code>, linked under Justifications.</p>"""
 
 
-def _mirror_chart(m, a, b) -> str:
-    """Mirrored horizontal bars of the phase-1 overall scores: A grows left, B grows right (0–10).
-    Each side is labelled directly (A top left, B below it on the right, each with its series marker);
-    the viewBox stays narrow so the text keeps its size on a 390 px screen."""
+def _mirror_gutter(types, W: int) -> int:
+    longest = max((len(label) for _t, _f, label in types), default=6)
+    return min(W // 3, max(64, round(longest * 7.4) + 14))
+
+
+def _mirror_svg(m, a, b, wide: bool) -> str:
+    """Mirrored horizontal bars of the phase-1 overall scores: A grows left of the centre line, B right (0–10).
+    Review-type labels sit in a left gutter, one row per type. Drawn at its display size (wide from 48rem,
+    narrow on phones) so the text keeps its size; the side legend is HTML above the chart."""
     types = m.review_types
-    W, half, top, row = 360, 130, 52, 34
-    cx = W / 2
+    W, row, bh, top = (760, 40, 18, 6) if wide else (358, 36, 16, 6)
+    gut = _mirror_gutter(types, W)
+    cx = gut + (W - gut) / 2
+    half = (W - gut) / 2 - (34 if wide else 28)
     sc = half / 10
     H = top + len(types) * row + 22
-    cid = f"mir-{a.slug}-{b.slug}"
+    cid = f"mir-{a.slug}-{b.slug}-{'w' if wide else 'n'}"
     desc = "; ".join(
         f"{label}: A {fmt_score(m.review(t, a.slug).overall) if m.review(t, a.slug) else 'no review'}, "
         f"B {fmt_score(m.review(t, b.slug).overall) if m.review(t, b.slug) else 'no review'}" for t, _f, label in types)
-    p = [f'<svg class="chart cmp-mirror" viewBox="0 0 {W} {H}" role="img" aria-labelledby="{cid}-t {cid}-d">',
+    p = [f'<svg class="chart cmp-mirror {"cmp-mir-wide" if wide else "cmp-mir-narrow"}" viewBox="0 0 {W} {H}" role="img" '
+         f'aria-labelledby="{cid}-t {cid}-d">',
          f'<title id="{cid}-t">Phase-1 overall scores out of 10: A ({esc(a.label)}) left, B ({esc(b.label)}) right</title>',
-         f'<desc id="{cid}-d">{esc(desc)}</desc>',
-         marker_svg(a.index, 6, 10, extra=' class="cmp-mk"'),
-         f'<text class="cmp-mh" x="16" y="15" text-anchor="start">A · {esc(a.label)}</text>',
-         marker_svg(b.index, W - 6, 30, extra=' class="cmp-mk"'),
-         f'<text class="cmp-mh" x="{W - 16}" y="35" text-anchor="end">B · {esc(b.label)}</text>']
+         f'<desc id="{cid}-d">{esc(desc)}</desc>']
     base = top + len(types) * row
     for t in (0, 5, 10):
         for sgn in ((-1, 1) if t else (1,)):
             x = cx + sgn * t * sc
-            p.append(f'<line class="grid-line" x1="{x:.1f}" y1="{top - 6}" x2="{x:.1f}" y2="{base}"/>')
-            p.append(f'<text class="label-muted" x="{x:.1f}" y="{base + 15}" text-anchor="middle">{t}</text>')
+            p.append(f'<line class="grid-line" x1="{x:.1f}" y1="{top}" x2="{x:.1f}" y2="{base}"/>')
+            p.append(f'<text class="label-muted" x="{x:.1f}" y="{base + 16}" text-anchor="middle">{t}</text>')
     for i, (t, _f, label) in enumerate(types):
         y = top + i * row
-        p.append(f'<text class="cmp-ml" x="{cx}" y="{y + 9}" text-anchor="middle">{esc(label)}</text>')
-        for side, c, sgn in (("A", a, -1), ("B", b, 1)):
+        by = y + (row - bh) / 2
+        ty = by + bh / 2 + 5
+        p.append(f'<text class="cmp-ml" x="0" y="{ty:.1f}">{esc(label)}</text>')
+        for c, sgn in ((a, -1), (b, 1)):
             r = m.review(t, c.slug)
+            anchor = "end" if sgn < 0 else "start"
             if not r:
-                p.append(f'<text class="label-muted" x="{cx + sgn * 6:.1f}" y="{y + 26}" '
-                         f'text-anchor="{"end" if sgn < 0 else "start"}">–</text>')
+                p.append(f'<text class="label-muted" x="{cx + sgn * 6:.1f}" y="{ty:.1f}" text-anchor="{anchor}">–</text>')
                 continue
             w = max(0.0, min(10.0, r.overall)) * sc
             x = cx - w if sgn < 0 else cx
-            p.append(f'<rect class="cmp-bar" x="{x:.1f}" y="{y + 14}" width="{w:.1f}" height="14" rx="2" style="fill:{cat(c.index)}'
+            p.append(f'<rect class="cmp-bar" x="{x:.1f}" y="{by:.1f}" width="{w:.1f}" height="{bh}" rx="2" style="fill:{cat(c.index)}'
                      + (f';stroke-dasharray:{cat_dash(c.index)}' if cat_dash(c.index) else "") + '"/>')
-            tx = cx + sgn * (w + 5)
-            p.append(f'<text class="cmp-mv" x="{tx:.1f}" y="{y + 25}" text-anchor="{"end" if sgn < 0 else "start"}">'
+            p.append(f'<text class="cmp-mv" x="{cx + sgn * (w + 6):.1f}" y="{ty:.1f}" text-anchor="{anchor}">'
                      f'{esc(fmt_score(r.overall))}</text>')
-    p.append(f'<line class="axis" x1="{cx}" y1="{top - 6}" x2="{cx}" y2="{base}"/>')
+    p.append(f'<line class="axis" x1="{cx}" y1="{top}" x2="{cx}" y2="{base}"/>')
     p.append("</svg>")
     return "".join(p)
+
+
+def _legend_key(c) -> str:
+    mk = marker_svg(c.index, 6, 6, extra=' class="cmp-mk"')
+    return f'<svg class="cmp-lg-mk" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">{mk}</svg>'
+
+
+def _mirror_chart(m, a, b) -> str:
+    """Legend (A over the left half, B over the right half, one baseline) + the wide and narrow charts."""
+    gw = 100 * _mirror_gutter(m.review_types, 760) / 760
+    gn = 100 * _mirror_gutter(m.review_types, 358) / 358
+    legend = (f'<div class="cmp-legend" style="--gut-w:{gw:.2f}%;--gut-n:{gn:.2f}%"><span class="cmp-lg-a">'
+              f'<span class="cmp-lg-t">A · {esc(a.label)}</span>{_legend_key(a)}</span>'
+              f'<span class="cmp-lg-b">{_legend_key(b)}<span class="cmp-lg-t">B · {esc(b.label)}</span></span></div>')
+    return legend + _mirror_svg(m, a, b, True) + _mirror_svg(m, a, b, False)
 
 
 def _crit_rows(ra, rb) -> list[tuple[str, object, object]]:
@@ -569,14 +590,14 @@ def build_pair(site: Site, a, b) -> None:
     toc = "".join(f'<li><a href="#{sid}">{esc(t)}</a></li>' for sid, t, _ in sections)
     secs = "\n".join(f'<section id="{sid}" class="cmp-sec" aria-labelledby="{sid}-h"><h2 id="{sid}-h">{esc(t)}</h2>\n{h}\n</section>'
                      for sid, t, h in sections)
-    body = f"""<h1 class="cmp-h1"><span class="cmp-h1-k">Compare</span> {_tag("A", a)} {esc(a.name)} <span class="muted cmp-vs">vs</span> {_tag("B", b)} {esc(b.name)}</h1>
+    body = f"""<h1 class="cmp-h1"><span class="cmp-h1-k">Compare</span> <span class="cmp-h1-side">{_tag("A", a)} <span class="cmp-h1-n">{esc(a.label)}</span></span> <span class="cmp-h1-side"><span class="muted cmp-vs">vs</span> {_tag("B", b)} <span class="cmp-h1-n">{esc(b.label)}</span></span></h1>
 {picker(site, a, b)}
 <nav class="cmp-toc" aria-label="On this page"><ol>{toc}</ol></nav>
 {secs}"""
-    site.page(f"compare/{a.slug}-vs-{b.slug}/index.html", f"{a.name} vs {b.name}", body, section="compare",
+    site.page(f"compare/{a.slug}-vs-{b.slug}/index.html", f"{a.label} vs {b.label}", body, section="compare",
               crumbs=[("Compare", "compare/"), (f"{a.label} vs {b.label}", f"compare/{a.slug}-vs-{b.slug}/")],
               scripts=SCRIPTS,
-              description=f"{a.name} vs {b.name}: judge ranks, phase-1 scores, verbatim justifications, special "
+              description=f"{a.label} vs {b.label}: judge ranks, phase-1 scores, verbatim justifications, special "
                           f"elements and screenshots side by side.")
 
 

@@ -36,7 +36,7 @@ def build(site: Site) -> None:
     print(f"search: {len(docs)} documents, {stats['passages']} passages, {stats['terms']} terms, "
           f"{stats['files']} files, {stats['bytes']:,} bytes (largest shard {stats['largest_shard_bytes']:,} B)", file=sys.stderr)
 
-    ex = " ".join(f'<a class="chip" href="@/search/?q={quote(q)}">{esc(q)}</a>' for q in EXAMPLES)
+    ex = '<span class="sep" aria-hidden="true"> · </span>'.join(f'<a href="@/search/?q={quote(q)}">{esc(q)}</a>' for q in EXAMPLES)
     kind_list = ", ".join(f"{esc(k)} ({n})" for k, n in sorted(kinds.items()))
     body = f"""<header class="search-head"><h1>Search</h1>
 <p class="lede">Full-text search over the reviews, judge rankings and summaries, the techniques catalog, the methodology and every transcript.</p></header>

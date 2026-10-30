@@ -90,11 +90,11 @@ class Site:
     def transcript_sources(self) -> list[TranscriptSource]:
         m, out = self.model, []
         for c in m.candidates:
-            out.append(TranscriptSource(transcript_id(c.transcription), c.transcription, f"Chat transcript — {c.name}", "chat", c.slug))
+            out.append(TranscriptSource(transcript_id(c.transcription), c.transcription, f"Chat transcript — {c.label}", "chat", c.slug))
         for r in m.reviews:
             if "TRANSCRIPT.md" in r.files:
                 p = r.files["TRANSCRIPT.md"]
-                out.append(TranscriptSource(transcript_id(p), p, f"{r.type_label} review agent log — {m.cand(r.slug).name}", "review", r.slug))
+                out.append(TranscriptSource(transcript_id(p), p, f"{r.type_label} review agent log — {m.cand(r.slug).label}", "review", r.slug))
         for j in m.judges:
             if "TRANSCRIPT.md" in j.files:
                 p = j.files["TRANSCRIPT.md"]
@@ -205,7 +205,7 @@ class Site:
 <header class="site-header">
 <div class="bar">
 <a class="brand" href="@/"><span class="brand-mark" aria-hidden="true"></span>MandelbrotXR <span class="brand-sub">results</span></a>
-<button class="theme-toggle" type="button" id="theme-toggle" aria-pressed="false" hidden><span class="theme-icon" aria-hidden="true"></span>Dark theme</button>
+<button class="theme-toggle" type="button" id="theme-toggle" aria-pressed="false" hidden><span class="theme-icon" aria-hidden="true"></span>Dark theme<span class="theme-state" aria-hidden="true">: off</span></button>
 </div>
 <nav class="site-nav" aria-label="Main"><ul>{nav}</ul></nav>
 </header>
@@ -240,7 +240,7 @@ def prompt_badge(prompt: str) -> str:
 
 
 def cand_link(c: Candidate) -> str:
-    return f'<a href="@/candidates/{c.slug}/">{esc(c.name)}</a>'
+    return f'<a href="@/candidates/{c.slug}/">{esc(c.label)}</a>'
 
 
 def figure(site: Site, shot, *, cls: str = "shot", link: bool = True) -> str:
@@ -248,7 +248,7 @@ def figure(site: Site, shot, *, cls: str = "shot", link: bool = True) -> str:
     c = site.model.cand(shot.slug) if shot.slug else None
     name = os.path.splitext(os.path.basename(shot.path))[0]
     words = re.sub(r"^[A-Z]-|^\d+-", "", name).replace("-", " ").replace("_", " ")
-    alt = f"{shot.source_label} screenshot of {c.name if c else 'a candidate'}: {words}"
+    alt = f"{shot.source_label} screenshot of {c.label if c else 'a candidate'}: {words}"
     src = "@/" + site.media(shot.path)
     cap = f'<span class="cap-src">{esc(shot.source_label)} · <code>{esc(os.path.basename(shot.path))}</code></span>'
     img = f'<img src="{src}" width="{shot.width}" height="{shot.height}" alt="{esc(alt)}" loading="lazy" decoding="async">'

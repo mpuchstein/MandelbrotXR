@@ -246,7 +246,7 @@ def history(site: Site) -> tuple[list[dict], bool]:
                 else:
                     r = next((x for x in m.reviews if x.type_folder == rm.group(1) and x.folder == rm.group(2)), None)
                     if r:
-                        title = f"Added: {r.type_label} review of {m.cand(r.slug).name}"
+                        title = f"Added: {r.type_label} review of {m.cand(r.slug).label}"
                     else:
                         title = f"Added: {rm.group(1).removesuffix('-Review')} review of {rm.group(2)}"
                     cidx = m.cand(r.slug).index if r else 10**6
@@ -330,6 +330,16 @@ def _validate_feed(xml: str) -> None:
 
 # ---------------------------------------------------------------- pages
 
+def _pcode(path: str) -> str:
+    """<code> for a repo path that breaks only after '/' (segments kept whole), never at a '-' inside a name."""
+    return "<code>" + "/<wbr>".join(f'<span class="nw">{esc(seg)}</span>' for seg in path.split("/")) + "</code>"
+
+
+def _keep(text: str) -> str:
+    """Escaped text with ' · v1'-style suffixes bound to the word before them (NBSP), so a version never starts a line."""
+    return re.sub(r" · (v\d+)\b", "\u00a0·\u00a0\\1", esc(text))
+
+
 def _date(iso: str) -> str:
     return f'<time datetime="{esc(iso)}">{esc(iso[:10])}</time>'
 
@@ -354,19 +364,21 @@ def changelog_page(site: Site, commits: list[dict], shallow: bool) -> None:
     for cm in commits:
         sha = cm["sha"]
         head = (f'<div class="cl-meta">{_date(cm["date_iso"])} · <a href="{GITHUB}/commit/{sha}" rel="noopener"><code>{sha[:7]}</code></a>'
-                f' · {esc(cm["author"])}</div><h2 class="cl-subject" id="c-{sha[:12]}">{esc(cm["subject"])}</h2>')
+                f' · <span class="nw">{esc(cm["author"])}</span></div><h2 class="cl-subject" id="c-{sha[:12]}">{esc(cm["subject"])}</h2>')
         groups_e: dict[str, list[str]] = {}
         for e in cm["entries"]:
-            label = esc(e["title"].removeprefix("Added: "))
+            label = _keep(e["title"].removeprefix("Added: "))
             link = f'<a href="{esc(e["url"])}">{label}</a>' if e["url"] else f'{label} <span class="muted">(not in this build)</span>'
             extra = ""
             if e["kind"] == "review" and e["obj"]:
-                extra = f'<span class="cl-score num" title="overall score">{esc(fmt_score(e["obj"].overall))}<span class="muted">/10</span></span>'
+                extra = (f'<span class="cl-mid cl-score num"><span class="sr-only">overall score </span>{esc(fmt_score(e["obj"].overall))}'
+                         f'<span class="muted">/10</span></span>')
             elif e["kind"] == "judge" and e["obj"] and e["obj"].rows:
                 top = site.model.cand(e["obj"].rows[0].slug)
-                extra = f'<span class="cl-top small">ranked first: {esc(top.label)}</span>'
-            src = (f'<span class="evidence cl-src small"><a href="{GITHUB}/blob/{sha}/{esc(e["path"])}" rel="noopener" '
-                   f'title="{esc(e["path"])} as added in {sha[:7]}"><code>{esc(os.path.basename(e["path"]))}</code> on GitHub</a></span>')
+                extra = f'<span class="cl-mid cl-top"><span class="muted">ranked first:</span> {_keep(top.label)}</span>'
+            src = (f'<span class="cl-src small"><a href="{GITHUB}/blob/{sha}/{esc(e["path"])}" rel="noopener" '
+                   f'title="{esc(e["path"])} as added in {sha[:7]}">GitHub<span class="sr-only">: {esc(e["path"])}</span> '
+                   f'<span aria-hidden="true">↗</span></a></span>')
             groups_e.setdefault(e["group"], []).append(f'<li><span class="cl-what">{link}</span>{extra}{src}</li>')
         body = "".join(f'<h3 class="cl-group">{esc(g)} <span class="muted num">({len(v)})</span></h3><ul class="cl-entries">{"".join(v)}</ul>'
                        for g, v in groups_e.items())
@@ -416,7 +428,8 @@ def data_page(site: Site, files: dict[str, bytes], commits: list[dict]) -> None:
         return f"{len(m.candidates)} candidates · {len(m.reviews)} reviews · {len(m.judges)} judges"
     flist = "".join(
         f'<li class="card data-file"><a class="data-file-name" href="@/data/{n}" download><code>{esc(n)}</code></a>'
-        f'<p class="data-file-meta small muted num">{"JSON" if n.endswith(".json") else "CSV"} · {esc(_size(len(files[n])))} · {esc(rows_of(n))}</p>'
+        f'<p class="data-file-meta small muted num">{"JSON" if n.endswith(".json") else "CSV"} · {esc(_size(len(files[n])))}'
+        f'<br>{esc(rows_of(n))}</p>'
         f'<p class="data-file-desc">{esc(desc[n])}</p></li>' for n in files)
     rs = "".join(
         f'<tr><th scope="row"><code>{esc(f).replace(".", "<wbr>.")}</code><span class="schema-type">{esc(t)}</span></th><td>{mean}{(" " + tag) if d else ""}</td></tr>'
@@ -453,9 +466,9 @@ Two builds of the same commit produce byte-identical files.</p>
 <section class="data-sec" aria-labelledby="provenance"><h2 id="provenance">Provenance and licence</h2>
 <ul class="data-notes">
 <li>Source: the committed files of <a href="{tree}" rel="noopener">mpuchstein/MandelbrotXR at <code>{esc(g['sha'][:7])}</code></a> —
-<code>site/candidates.toml</code>, <code>Review/*-Review/*/REVIEW.md</code>, <code>Judge/*-Judge/RANKING.md</code>,
-<code>Judge/judge-mapping.json</code>, <code>ReviewOrchestrator/blind-mapping.json</code> and
-<code>ReviewOrchestrator/blind/source-html.sha256</code>. Nothing is entered by hand except <code>site/candidates.toml</code>.</li>
+{_pcode("site/candidates.toml")}, {_pcode("Review/*-Review/*/REVIEW.md")}, {_pcode("Judge/*-Judge/RANKING.md")},
+{_pcode("Judge/judge-mapping.json")}, {_pcode("ReviewOrchestrator/blind-mapping.json")} and
+{_pcode("ReviewOrchestrator/blind/source-html.sha256")}. Nothing is entered by hand except {_pcode("site/candidates.toml")}.</li>
 <li>Verdicts are verbatim: justifications, reasons and special-element bullets are the judges' and reviewers' Markdown, unchanged. Scores and ranks are parsed, not edited.</li>
 <li>Fields marked {tag} are computed by the build; see <a href="#derived-fields">Derived fields</a> and <a href="@/methodology/#derived">Methodology</a>.</li>
 <li>The repository has no licence file at this commit; reuse terms are the repository owner's.</li>

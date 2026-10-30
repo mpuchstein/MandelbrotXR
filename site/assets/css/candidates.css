@@ -15,7 +15,8 @@
 .cand-title { font-size: var(--text-lg); margin: 0 0 var(--space-1); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .cand-title a { color: var(--fg); text-decoration: none; }
 .cand-title a:hover { text-decoration: underline; }
-.cand-key { display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: var(--key); border: 1px solid var(--border-strong); flex: none; }
+.cand-key { display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: var(--key); flex: none;
+  border: 1px solid color-mix(in srgb, var(--fg) 55%, transparent); }   /* neutral outline: light hues stay visible on light cards */
 .cand-sub { margin: 0 0 var(--space-2); }
 .cand-rank { margin: 0 0 var(--space-2); line-height: var(--leading-tight); }
 .cand-rank .big, .overall-num .big, .judge-rank .big { font-size: var(--text-2xl); font-weight: 700; font-variant-numeric: tabular-nums; margin-right: var(--space-1); }
@@ -27,6 +28,8 @@ dl.scores dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; 
 dl.scores .of { font-weight: 400; color: var(--muted); font-size: var(--text-xs); }
 .cand-actions { margin: auto 0 0; display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .cand-actions .btn { flex: 1 1 96px; }
+/* per-card Play is secondary (one filled accent per page: the Play button of a candidate page) */
+.btn-play-sec .play-icon { color: var(--muted); }
 
 /* ---- candidate page header */
 .cand-head { padding: var(--space-3) 0 var(--space-4); border-bottom: 1px solid var(--border); margin-bottom: var(--space-4); }
@@ -94,14 +97,18 @@ dl.scores .of { font-weight: 400; color: var(--muted); font-size: var(--text-xs)
 .review-block > h3 { margin-top: 0; }
 .overall { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); align-items: center; margin-bottom: var(--space-3); }
 .overall-num { margin: 0; white-space: nowrap; }
-.overall-line { flex: 1 1 288px; margin: 0; }
+.overall-line { flex: 1 1 288px; margin: 0; max-width: none; }
 .overall-line p { margin: 0; }
-.chart-fig { margin: 0 0 var(--space-3); max-width: 416px; }
+.chart-fig { margin: 0 0 var(--space-3); max-width: 720px; }
+.chart-fig .crit-chart { display: block; width: 100%; height: auto; }
+.chart-fig .crit-narrow { max-width: 416px; }
+.chart-fig .crit-wide { display: none; }
+@media (min-width: 48rem) { .chart-fig .crit-wide { display: block; } .chart-fig .crit-narrow { display: none; } }
 /* bars in this candidate's fixed series colour (--key), outlined so light hues hold up on light surfaces */
 .crit-chart .bar { fill: var(--key, var(--accent)); stroke: var(--fg); stroke-opacity: .55; stroke-width: 1; }
 .crit-chart .hit { fill: transparent; }
 .crit-chart .bar-row:hover .hit { fill: var(--surface-2); }
-.crit-chart .crit-label { font-size: var(--text-sm); }
+.crit-chart .crit-label { font-size: var(--text-sm); font-variant-numeric: normal; }   /* tnum widens "-" in labels */
 .crit-chart .crit-val { font-size: var(--text-sm); font-weight: 700; }
 .crit-chart .tick { font-size: var(--text-xs); }
 .crit-chart .grid-line { stroke-dasharray: 2 3; }

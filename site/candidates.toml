@@ -3,8 +3,8 @@
 # One [[candidate]] table per top-level product folder. Fields:
 #   slug          URL slug: candidates/<slug>/, play/<slug>/ (lowercase, a-z0-9 and '-')
 #   folder        top-level repo folder <Vendor>-<Product>-<Model>-<Effort>-v<N>
-#   name          display name used in headings on detail pages
-#   label         short label used in tables and charts (full folder names appear only on detail pages)
+#   name          longer descriptive name (kept in data/results.json and the search index)
+#   label         display name used everywhere on the site, in tables and charts (folder names appear only on detail pages)
 #   vendor        company
 #   product       product / surface the chat ran in
 #   model         model as recorded (TRANSCRIPTION.md header, ReviewOrchestrator/README.md §1)

@@ -100,41 +100,55 @@ def _label_link(c) -> str:
     return f'<a href="{cand_url(c)}">{esc(c.label)}</a>'
 
 
-def _bar_chart(review, c) -> str:
-    """Horizontal bar chart (0–10) of one review's criteria; labels above bars, score at bar end.
-    Bars use the candidate's fixed series colour; every bar carries its criterion name and value as text."""
-    W, gut, row, top = 400, 36, 42, 6
-    scale = (W - gut) / 10
+def _bar_path(x0: float, by: float, w: float, bh: float) -> str:
+    """Bar from x0, w long, bh high, rounded at its outer end only."""
+    r = min(4.0, w, bh / 2)
+    return (f"M{x0:.1f} {by:.1f}h{w - r:.1f}a{r:.1f} {r:.1f} 0 0 1 {r:.1f} {r:.1f}v{bh - 2 * r:.1f}"
+            f"a{r:.1f} {r:.1f} 0 0 1 -{r:.1f} {r:.1f}h-{w - r:.1f}z")
+
+
+def _bar_chart(review, c, wide: bool) -> str:
+    """Horizontal bar chart (0–10) of one review's criteria, drawn at its display size so text stays 1:1.
+    wide: criterion labels in a left gutter, bars across the content column (shown from 48rem);
+    narrow: labels above each bar (phones). Bars use the candidate's fixed series colour; every bar
+    carries its criterion name and value as text. Gridlines never cross a label."""
     n = len(review.criteria)
+    if wide:
+        longest = max((len(cr.name) for cr in review.criteria), default=8)
+        gut = min(300, max(120, round(longest * 7.6) + 20))
+        W, row, top, bh, end = 720, 34, 4, 18, 34
+    else:
+        gut, W, row, top, bh, end = 0, 360, 42, 6, 13, 28
+    scale = (W - gut - end) / 10
     H = top + n * row + 22
-    tid = f"chart-{review.type_id}-{review.slug}"
-    parts = [f'<svg class="chart crit-chart" viewBox="0 0 {W} {H}" role="img" aria-labelledby="{tid}-t {tid}-d" '
-             f'preserveAspectRatio="xMinYMin meet" style="--key:{cat(c.index)}">',
+    tid = f"chart-{review.type_id}-{review.slug}-{'w' if wide else 'n'}"
+    parts = [f'<svg class="chart crit-chart {"crit-wide" if wide else "crit-narrow"}" viewBox="0 0 {W} {H}" role="img" '
+             f'aria-labelledby="{tid}-t {tid}-d" preserveAspectRatio="xMinYMin meet" style="--key:{cat(c.index)}">',
              f'<title id="{tid}-t">{esc(review.type_label)} review of {esc(c.label)}: criterion scores, 0–10</title>',
              f'<desc id="{tid}-d">' + esc("; ".join(f"{cr.name}: {fmt_score(cr.score)}" for cr in review.criteria)) + "</desc>"]
     base_y = top + n * row
     for t in range(0, 11, 2):
-        x = round(t * scale, 1)
-        parts.append(f'<line class="grid-line" x1="{x}" y1="{top}" x2="{x}" y2="{base_y}"/>')
-        anchor = "start" if t == 0 else "middle"
+        x = round(gut + t * scale, 1)
+        if wide:
+            parts.append(f'<line class="grid-line" x1="{x}" y1="{top}" x2="{x}" y2="{base_y}"/>')
+        else:   # one short segment per bar band, so the labels above the bars stay clear
+            for i in range(n):
+                by = top + i * row + 21
+                parts.append(f'<line class="grid-line" x1="{x}" y1="{by - 3}" x2="{x}" y2="{by + bh + 3}"/>')
+        anchor = "start" if t == 0 and not wide else "middle"
         parts.append(f'<text class="label-muted tick" x="{x}" y="{base_y + 16}" text-anchor="{anchor}">{t}</text>')
     for i, cr in enumerate(review.criteria):
         y = top + i * row
         w = max(0.0, min(10.0, cr.score)) * scale
-        by = y + 21
-        bh = 13
-        r = min(4.0, w)
-        if w > 0:
-            path = (f"M0 {by}h{w - r:.1f}a{r:.1f} {r:.1f} 0 0 1 {r:.1f} {r:.1f}v{bh - 2 * r:.1f}"
-                    f"a{r:.1f} {r:.1f} 0 0 1 -{r:.1f} {r:.1f}h-{w - r:.1f}z")
-        else:
-            path = ""
+        by = y + (row - bh) / 2 if wide else y + 21
+        ly = by + bh / 2 + 5 if wide else y + 15
+        path = _bar_path(gut, by, w, bh) if w > 0 else ""
         parts.append(f'<g class="bar-row"><title>{esc(cr.name)}: {esc(fmt_score(cr.score))} / 10</title>'
                      f'<rect class="hit" x="0" y="{y}" width="{W}" height="{row}"/>'
-                     f'<text class="crit-label" x="0" y="{y + 15}">{esc(cr.name)}</text>'
+                     f'<text class="crit-label" x="0" y="{ly:.1f}">{esc(cr.name)}</text>'
                      + (f'<path class="bar" d="{path}"/>' if path else "")
-                     + f'<text class="crit-val" x="{w + 6:.1f}" y="{by + 11}">{esc(fmt_score(cr.score))}</text></g>')
-    parts.append(f'<line class="axis" x1="0" y1="{top}" x2="0" y2="{base_y}"/>')
+                     + f'<text class="crit-val" x="{gut + w + 6:.1f}" y="{by + bh / 2 + 5:.1f}">{esc(fmt_score(cr.score))}</text></g>')
+    parts.append(f'<line class="axis" x1="{gut}" y1="{top}" x2="{gut}" y2="{base_y}"/>')
     parts.append("</svg>")
     return "".join(parts)
 
@@ -161,7 +175,7 @@ def _card(site: Site, c) -> str:
 {rank_line}
 <p class="small muted scores-head">Phase-1 overall scores</p>
 {_score_list(site, c)}
-<p class="cand-actions"><a class="btn btn-primary" href="{play_url(c)}">Play<span class="sr-only"> {esc(c.label)}</span></a>
+<p class="cand-actions"><a class="btn btn-play-sec" href="{play_url(c)}"><span class="play-icon" aria-hidden="true"></span>Play<span class="sr-only"> {esc(c.label)}</span></a>
 <a class="btn" href="{cand_url(c)}">Details<span class="sr-only"> on {esc(c.label)}</span></a></p>
 </div>
 </article>"""
@@ -202,11 +216,11 @@ def _header(site: Site, c) -> str:
         rank = '<p class="cand-standing muted">Not ranked by any judge.</p>'
     return f"""<header class="cand-head">
 <p class="eyebrow">Candidate</p>
-<h1>{esc(c.name)}</h1>
+<h1>{esc(c.label)}</h1>
 <p class="cand-meta">{esc(c.vendor)} · {esc(c.product)} · <a class="badge-link" href="@/methodology/#prompts" title="Read prompt {esc(c.prompt)} on the methodology page">{prompt_badge(c.prompt)} <span class="small">prompt</span></a></p>
 {rank}
 <div class="play-row">
-<a class="btn btn-primary btn-play" href="{play_url(c)}"><span class="play-icon" aria-hidden="true"></span>Play {esc(c.name)}</a>
+<a class="btn btn-primary btn-play" href="{play_url(c)}"><span class="play-icon" aria-hidden="true"></span>Play {esc(c.label)}</a>
 <a class="btn" href="{esc(site.gh(c.html_path))}" rel="noopener">Source on GitHub<span class="sr-only"> ({esc(c.product_file)})</span></a>
 </div>
 <p class="small muted play-note">Play opens the product full-page; WebXR needs a top-level page, so it is not embedded here.</p>
@@ -405,7 +419,7 @@ def _criteria(site: Site, c) -> str:
 <blockquote class="quote overall-line"><p>{_overall_html(site, r)}</p>
 <cite>Overall-score line, verbatim — {_ev(site, src, "REVIEW.md" + (f" line {line}" if line else ""), line)}</cite></blockquote>
 </div>
-<figure class="chart-fig">{_bar_chart(r, c)}<figcaption class="small muted">Criterion scores (0–10 axis). Same data, with the reviewer's reasons, in the table below.</figcaption></figure>
+<figure class="chart-fig">{_bar_chart(r, c, True)}{_bar_chart(r, c, False)}<figcaption class="small muted">Criterion scores (0–10 axis). Same data, with the reviewer's reasons, in the table below.</figcaption></figure>
 <div class="table-wrap"><table class="crit-table">
 <caption>{esc(label)} review criteria with the reviewer's one-line reasons, verbatim.</caption>
 <thead><tr><th scope="col">Criterion</th><th scope="col" class="num">Score</th><th scope="col">One-line reason (verbatim)</th></tr></thead>
@@ -595,14 +609,14 @@ def build_candidate(site: Site, c) -> None:
 {secs}
 </div>
 </div>"""
-    site.page(f"candidates/{c.slug}/index.html", c.name, body, section="candidates",
-              crumbs=[("Candidates", "candidates/"), (c.name, f"candidates/{c.slug}/")],
-              description=f"{c.name} ({c.vendor} · {c.product}, prompt {c.prompt}): play it, its phase-1 reviews, "
+    site.page(f"candidates/{c.slug}/index.html", c.label, body, section="candidates",
+              crumbs=[("Candidates", "candidates/"), (c.label, f"candidates/{c.slug}/")],
+              description=f"{c.label} ({c.vendor} · {c.product}, prompt {c.prompt}): play it, its phase-1 reviews, "
                           f"every judge's verbatim justification, screenshots and facts.")
-    facts = [c.name, c.vendor, c.product, c.model, c.effort, md.to_text(c.provenance), f"prompt {c.prompt}",
+    facts = [c.label, c.name, c.vendor, c.product, c.model, c.effort, md.to_text(c.provenance), f"prompt {c.prompt}",
              c.product_file, f"{c.bytes} bytes", c.sha256, c.folder, " ".join(_blind_ids(site, c.slug)),
              " ".join(c.external), f"alert calls {c.alert_calls}" if c.alert_calls else ""]
-    site.search_doc(f"candidates/{c.slug}/", c.name, "page", f"Candidate · {c.vendor} · {c.product}",
+    site.search_doc(f"candidates/{c.slug}/", c.label, "page", f"Candidate · {c.vendor} · {c.product}",
                     " ".join(x for x in facts if x))
 
 

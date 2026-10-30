@@ -9,6 +9,7 @@
 .tq-index ol { margin: 0 0 var(--space-2); padding-left: var(--space-5); columns: 1; column-gap: var(--space-5); }
 .tq-index li { break-inside: avoid; padding: var(--space-1) 0; max-width: none; }
 .tq-index .tq-idx-n { font-variant-numeric: tabular-nums; }
+.tq-nw { white-space: nowrap; }
 .tq-index > p:last-child { margin: 0; }
 @media (min-width: 40rem) { .tq-index ol { columns: 2; } }
 @media (min-width: 64rem) { .tq-index ol { columns: 3; } }
@@ -20,13 +21,25 @@
 
 /* matrix */
 .tq-matrix-wrap { position: relative; }   /* contains the .sr-only spans of its cells */
-.tq-matrix th[scope="col"].num { white-space: normal; min-width: 104px; vertical-align: bottom; line-height: 1.3; }
+/* desktop: the whole matrix fits, so it takes its natural height (no nested vertical scroller on a long page);
+   below 64rem it keeps the shared matrix behaviour (own scroll box, sticky header and first column) and says so */
+@media (min-width: 64rem) { .matrix-wrap.tq-matrix-wrap { max-height: none; } .tq-scroll-note { display: none; } }
+.tq-matrix thead th { vertical-align: bottom; }
+.tq-matrix th[scope="col"].num { white-space: normal; min-width: 80px; vertical-align: bottom; line-height: 1.3; }
+.tq-matrix th[scope="col"].num:last-child, .tq-matrix td.tq-tot { width: 1%; min-width: 0; }
+.tq-cv { display: block; white-space: nowrap; }
 .tq-matrix th[scope="col"] a { color: var(--fg); }
-.tq-matrix tbody th { white-space: normal; min-width: 176px; max-width: 240px; font-weight: 600; }
+.tq-matrix tbody th { white-space: normal; min-width: 176px; max-width: 260px; font-weight: 600; }
+@media (min-width: 64rem) {
+  .tq-matrix tbody th, .tq-matrix tfoot th, .tq-matrix thead th:first-child { min-width: 232px; width: 240px; }
+  .tq-matrix th[scope="col"].num { min-width: 100px; }
+}
 .tq-matrix tbody th a { color: var(--fg); text-decoration: none; }
 .tq-matrix tbody th a:hover { text-decoration: underline; }
-.tq-matrix td.tq-hit { background: var(--accent-soft); font-weight: 650; }
-.tq-matrix td.tq-hit a { color: var(--fg); text-decoration: none; display: block; }
+/* credited cells: inline single-hue fill scaled by count (same blue scale as the score heatmaps, both themes) */
+.tq-matrix td.tq-hit { font-weight: 650; }
+.tq-matrix td.tq-hit a { color: inherit; text-decoration: none; display: block; }
+.tq-legend-p { margin: 0 0 var(--space-2); }
 .tq-matrix td.tq-hit a:hover { text-decoration: underline; }
 .tq-matrix td.tq-none { color: var(--muted); }
 .tq-matrix td.tq-tot { color: var(--muted); border-left: 1px solid var(--border); }
@@ -46,7 +59,9 @@
 .tq-bullets > li, .tq-quotes > li { max-width: var(--measure); margin: 0 0 var(--space-3); }
 .tq-bullets > li:target .quote { border-left-color: var(--accent); background: var(--accent-soft); }
 .tq-bullets .quote, .tq-quotes .quote { margin: 0; }
-.tq-letter { font-family: var(--mono); font-weight: 700; }
+.tq-letter { font-family: var(--mono); font-weight: 700; font-size: 1.15em; }
+/* attribution lines: the GitHub qualifier at the citation's own size */
+.tq-bullets .quote cite .evidence .gh, .tq-quotes .quote cite .evidence .gh { font-size: 1em; }
 .tq-map { white-space: nowrap; }
 @media (max-width: 30rem) { .tq-map { white-space: normal; } }
 .tq-tags { margin: var(--space-1) 0 0; padding-left: var(--space-3); }

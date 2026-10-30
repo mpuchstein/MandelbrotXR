@@ -13,10 +13,16 @@
   document.addEventListener("DOMContentLoaded", function () {
     var btn = document.getElementById("theme-toggle");
     if (!btn) return;
-    function sync() { btn.setAttribute("aria-pressed", isDark() ? "true" : "false"); }
+    var state = btn.querySelector(".theme-state");
+    function sync() {
+      btn.setAttribute("aria-pressed", isDark() ? "true" : "false");
+      if (state) state.textContent = isDark() ? ": on" : ": off";
+    }
     btn.hidden = false;
     sync();
     btn.addEventListener("click", function () { var v = isDark() ? "light" : "dark"; apply(v); store(v); sync(); });
     if (media && media.addEventListener) media.addEventListener("change", sync);
+    var cur = document.querySelector('.site-nav [aria-current="page"]');
+    if (cur && cur.scrollIntoView && window.innerWidth < 640) cur.scrollIntoView({ inline: "center", block: "nearest" });
   });
 })();

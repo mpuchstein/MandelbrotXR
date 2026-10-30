@@ -91,7 +91,9 @@
     const k = 2 * r > n ? f + 1 : 2 * r < n ? f : (f % 2 ? f + 1 : f);
     return (k / 10).toFixed(1);
   }
-  const gx = (r) => (4 + (r - 1) * 56 / Math.max(1, nmax - 1)).toFixed(1);
+  // mirrors rankings.py GLYPH_W / GLYPH_PAD
+  const GLYPH_W = 96, GLYPH_PAD = 6;
+  const gx = (r) => (GLYPH_PAD + (r - 1) * (GLYPH_W - 2 * GLYPH_PAD) / Math.max(1, nmax - 1)).toFixed(1);
 
   function applyJudges() {
     const shown = new Set();
@@ -196,7 +198,22 @@
     }
   }
 
-  function update() { apply(true); writeHash(); }
+  // Scroll cue: a right-edge fade while columns are hidden to the right, and the "scroll sideways"
+  // hint only while the table is wider than its frame.
+  const scroller = document.getElementById("rank-scroller");
+  const wrap = table.closest(".table-wrap");
+  const hint = document.getElementById("rank-scroll-hint");
+  function overflow() {
+    if (!scroller || !wrap) return;
+    const extra = wrap.scrollWidth - wrap.clientWidth;
+    scroller.classList.toggle("more-right", extra - wrap.scrollLeft > 2);
+    if (hint) hint.hidden = extra <= 2;
+  }
+  if (hint) hint.classList.add("live");
+  if (wrap) wrap.addEventListener("scroll", overflow, { passive: true });
+  window.addEventListener("resize", overflow);
+
+  function update() { apply(true); writeHash(); overflow(); }
 
   for (const [key, btn] of cols) {
     btn.addEventListener("click", () => {
@@ -210,7 +227,7 @@
   }
   if (heatBtn) heatBtn.addEventListener("click", () => { state.heat = !state.heat; update(); });
   if (resetBtn) resetBtn.addEventListener("click", () => { state = { ...DEFAULT }; update(); });
-  window.addEventListener("hashchange", () => { state = parse(location.hash); apply(true); writeHash(); });
+  window.addEventListener("hashchange", () => { state = parse(location.hash); apply(true); writeHash(); overflow(); });
 
   if (controls) controls.hidden = false;
   if (status) status.hidden = false;
@@ -218,4 +235,5 @@
   state = parse(location.hash);
   apply(false);
   writeHash();
+  overflow();
 })();
