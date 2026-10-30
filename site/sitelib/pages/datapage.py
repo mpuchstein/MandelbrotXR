@@ -23,7 +23,7 @@ from xml.sax.saxutils import escape as xesc
 
 from .. import md
 from ..data import DataError, git_history
-from ..fragments import fmt_mean, fmt_score, judge_url, review_url
+from ..fragments import count_word, fmt_mean, fmt_score, judge_url, review_url
 from ..layout import GITHUB, Site, esc
 
 ORDER = 850
@@ -414,14 +414,6 @@ def changelog_page(site: Site, commits: list[dict], shallow: bool) -> None:
                     " ".join(f'{cm["subject"]}. ' + " ".join(e["title"] for e in cm["entries"]) for cm in commits))
 
 
-_WORDS = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve")
-
-
-def _word(n: int) -> str:
-    """A count for prose: spelled out up to twelve, digits above (always derived, never hardcoded)."""
-    return _WORDS[n] if 0 <= n < len(_WORDS) else str(n)
-
-
 def data_page(site: Site, files: dict[str, bytes], commits: list[dict]) -> None:
     m, g = site.model, site.git
     tree = f"{GITHUB}/tree/{g['sha']}"
@@ -467,7 +459,7 @@ def data_page(site: Site, files: dict[str, bytes], commits: list[dict]) -> None:
         rec_html = (f'<p>Latest: {len(same)} judgment{"s" if len(same) != 1 else ""} added on {_date(latest)}. '
                     f'{len(recent)} in total since the first commit.</p>')
     body = f"""<header class="data-head"><h1>Data</h1>
-<p class="lede">The complete results as machine-readable files: one JSON export with everything and {_word(sum(1 for n in files if n.endswith(".csv")))} flat CSV tables.
+<p class="lede">The complete results as machine-readable files: one JSON export with everything and {count_word(sum(1 for n in files if n.endswith(".csv")))} flat CSV tables.
 They are generated from the repository at commit <a href="{GITHUB}/commit/{g['sha']}" rel="noopener"><code>{esc(g['version'][:12])}</code></a>
 ({_date(g['date_iso'])}) by the same build that writes this site, so every number here equals the one on the pages.</p></header>
 <section class="data-sec" aria-labelledby="files"><h2 id="files">Files</h2>

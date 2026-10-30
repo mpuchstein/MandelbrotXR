@@ -11,7 +11,7 @@ from fractions import Fraction
 
 from .. import img, md
 from ..data import DataError
-from ..fragments import caveats_html, cand_url, fmt_mean, judge_url, marker_svg, render_md, standing_html
+from ..fragments import WORDS, caveats_html, cand_url, count_word, fmt_mean, judge_url, marker_svg, render_md, standing_html
 from ..layout import Site, esc
 from . import candidates as _candidates
 
@@ -23,21 +23,13 @@ PASSAGE_START = "The judges broadly agree"
 HERO_W, HERO_H = 720, 240
 HERO_VIEW = dict(center=(-0.7436, 0.1318), span=0.03, max_iter=250)
 
-_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"]
-
-
-def words(n: int, cap: bool = False) -> str:
-    """Small counts as words ('eight'), larger ones as digits."""
-    w = _WORDS[n] if 0 <= n < len(_WORDS) else str(n)
-    return w[:1].upper() + w[1:] if cap else w
-
 
 def _count_word(s: str, path: str) -> int:
     s = s.strip().lower()
     if s.isdigit():
         return int(s)
-    if s in _WORDS:
-        return _WORDS.index(s)
+    if s in WORDS:
+        return WORDS.index(s)
     raise DataError(f"{path}: cannot read the count {s!r} in the '{PASSAGE_START}' passage")
 
 
@@ -110,7 +102,7 @@ def derived_check(site: Site, k_top: int, k_bot: int) -> str:
         diff = ""
         if differ:
             diff = " Differs: " + ", ".join(f'<a href="{judge_url(j)}">{esc(j.label)}</a>' for j in differ) + "."
-        these = f"these {words(k)}" if k != 1 else "this candidate"
+        these = f"these {count_word(k)}" if k != 1 else "this candidate"
         return (f'<div class="home-check-row"><h4>{esc(label)} by mean rank</h4>'
                 f"<p>{_names(site, sel)}.{_ties_note(site, sel)}{boundary}</p>"
                 f'<p class="home-check-agree"><span class="home-frac">{len(agree)}/{nj}</span> '
@@ -159,7 +151,7 @@ def derived_check(site: Site, k_top: int, k_bot: int) -> str:
     out.append(dev)
     return ('<section class="card home-check" aria-labelledby="home-check-h">'
             '<h3 id="home-check-h">Checked against the data <span class="derived">derived</span></h3>'
-            f'<p class="small muted">Computed by this site from the {words(nj)} <code>RANKING.md</code> files and '
+            f'<p class="small muted">Computed by this site from the {count_word(nj)} <code>RANKING.md</code> files and '
             '<code>judge-mapping.json</code>. Mean rank = the average of a candidate’s ranks over the judges that ranked it; '
             'candidates with equal means share a place.</p>'
             + "".join(out) + "</section>")
@@ -172,8 +164,8 @@ def hero(site: Site) -> str:
     png = img.mandelbrot_png(HERO_W, HERO_H, dark=True, **HERO_VIEW)
     site.write("media/hero.png", png)
     nc, nj = len(m.candidates), len(m.judges)
-    sub = (f"{words(nc, True)} AI coding assistants each built a WebXR Mandelbrot room; "
-           f"blind reviewers scored every build and {words(nj)} blind judges ranked them.")
+    sub = (f"{count_word(nc, True)} AI coding assistants each built a WebXR Mandelbrot room; "
+           f"blind reviewers scored every build and {count_word(nj)} blind judges ranked them.")
     stats = [(nc, "candidates"), (len({c.prompt for c in m.candidates}), "prompts"),
              (len(m.reviews), "blind reviews"), (nj, "blind judges")]
     dl = "".join(f'<div><dt>{esc(label)}</dt><dd>{n}</dd></div>' for n, label in stats)
@@ -190,20 +182,20 @@ def explainer(site: Site) -> tuple[str, str]:
     m = site.model
     nc = len(m.candidates)
     prompts = sorted({c.prompt for c in m.candidates})
-    per = [f"{p} for {words(sum(1 for c in m.candidates if c.prompt == p))}" for p in prompts]
+    per = [f"{p} for {count_word(sum(1 for c in m.candidates if c.prompt == p))}" for p in prompts]
     pl = _and([f'<a href="@/methodology/#prompts">{esc(p)}</a>' for p in prompts])
     ncrit = sorted({len(r.criteria) for r in m.reviews})
-    crit = f"{words(ncrit[0])} criteria" if len(ncrit) == 1 else "a set of criteria"
+    crit = f"{count_word(ncrit[0])} criteria" if len(ncrit) == 1 else "a set of criteria"
     types = [label for _, _, label in m.review_types]
     jlinks = _and([f'<a href="{judge_url(j)}">{esc(j.label)}</a>' for j in m.judges])
     all_ranked = all(len(j.rows) == nc for j in m.judges)
-    ranked = f"ranked all {words(nc)} from best to worst" if all_ranked else "ranked the candidates they were given from best to worst"
-    html = (f'<p class="lede home-lede">{words(nc, True)} AI coding assistants each built a standalone WebXR page that '
-            f'visualizes the Mandelbrot set in a virtual room, from one of {words(len(prompts))} prompts ({pl}; '
+    ranked = f"ranked all {count_word(nc)} from best to worst" if all_ranked else "ranked the candidates they were given from best to worst"
+    html = (f'<p class="lede home-lede">{count_word(nc, True)} AI coding assistants each built a standalone WebXR page that '
+            f'visualizes the Mandelbrot set in a virtual room, from one of {count_word(len(prompts))} prompts ({pl}; '
             f'{", ".join(esc(x) for x in per)} builds). '
-            f'In phase 1, every page was reviewed blind by {words(len(types))} kinds of reviewer '
+            f'In phase 1, every page was reviewed blind by {count_word(len(types))} kinds of reviewer '
             f'(<a href="@/judges/">{esc(_and(types))}</a>), each scoring {crit} from 1 to 10 plus an overall score. '
-            f'In phase 2, {words(len(m.judges))} blind judges, each working from different material ({jlinks}), '
+            f'In phase 2, {count_word(len(m.judges))} blind judges, each working from different material ({jlinks}), '
             f'{ranked}. The mean of those ranks is the consensus used below.</p>')
     text = re.sub(r"<[^>]+>", "", html)
     return html, text
@@ -272,7 +264,7 @@ def compact_ranking(site: Site) -> str:
     return (f'<section class="home-ranking" aria-labelledby="home-ranking-h">'
             f'<h2 id="home-ranking-h">Compact ranking</h2>'
             f'<p class="muted">Each judge’s rank (1 = best) and the mean <span class="derived">derived</span>. '
-            f'The strip plots the {words(len(m.judges))} ranks on a 1–{n} scale; the vertical tick is the mean. '
+            f'The strip plots the {count_word(len(m.judges))} ranks on a 1–{n} scale; the vertical tick is the mean. '
             f'The <a href="@/rankings/">rankings page</a> has the full sortable matrix, spread and judge agreement.</p>'
             f'<div class="table-wrap matrix-wrap"><table class="home-rank-table">'
             f'<caption>Phase-2 ranks by judge, ordered by mean rank.</caption>'

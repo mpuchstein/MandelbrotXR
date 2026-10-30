@@ -17,7 +17,7 @@ from collections import Counter
 
 from .. import md
 from ..data import DataError, parse_overall, section
-from ..fragments import CAVEATS, fmt_mean, md_link, render_md
+from ..fragments import CAVEATS, count_word, fmt_mean, inline, render_md
 from ..layout import Site, cand_link, esc, prompt_badge
 
 ORDER = 800
@@ -133,25 +133,9 @@ def _secno(head: str) -> str:
     return f"§{m.group(1)} “{m.group(2)}”" if m else f"“{head}”"
 
 
-_WORDS = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve")
-
-
-def _word(n: int) -> str:
-    """A count for prose: spelled out up to twelve, digits above (always derived, never hardcoded)."""
-    return _WORDS[n] if 0 <= n < len(_WORDS) else str(n)
-
-
 def clink(c) -> str:
     """Short candidate label (tables, compact lists), linked to the candidate page."""
     return f'<a href="@/candidates/{c.slug}/">{esc(c.label)}</a>'
-
-
-def _link(site: Site, path: str):
-    return md_link(site, path)
-
-
-def inline(site: Site, path: str, text: str) -> str:
-    return md.render_inline(text, link=_link(site, path))
 
 
 def quote(site: Site, src: Src, text: str, line: int, *, block: bool = False, label: str | None = None) -> str:
@@ -968,7 +952,7 @@ def build(site: Site) -> None:
     toc = "".join(f'<li><a href="#{k}">{esc(labels[k])}</a></li>' for k, _ in TOC)
     body = [
         '<header class="meth-head"><h1>Methodology</h1>'
-        f'<p class="lede">How the {_word(len(site.model.candidates))} products were collected, blinded, reviewed, judged and aggregated, '
+        f'<p class="lede">How the {count_word(len(site.model.candidates))} products were collected, blinded, reviewed, judged and aggregated, '
         'what went wrong along the way, and what the numbers on this site can and cannot tell you. '
         'Wherever possible this page quotes the process record instead of summarising it.</p></header>',
         f'<nav class="meth-toc" aria-label="On this page"><h2 class="toc-h">On this page</h2><ol>{toc}</ol></nav>',

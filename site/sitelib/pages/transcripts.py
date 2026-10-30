@@ -16,7 +16,7 @@ import re
 from dataclasses import dataclass, field
 
 from .. import md
-from ..fragments import cand_url, judge_url, md_link, render_md, review_url
+from ..fragments import cand_url, judge_url, md_link, nb_dash, render_md, review_url
 from ..layout import Site, TranscriptSource, esc
 
 ORDER = 700
@@ -367,11 +367,6 @@ def render_body(body: str, link) -> str:
     return _demote("\n".join(parts), 3)
 
 
-def _nb(text: str) -> str:
-    """Keep a dash with the word before it (' — ' -> NBSP + '— ') so a wrapped title never starts a line with it."""
-    return re.sub(r" ([—–]) ", "\u00a0\\1 ", text)
-
-
 def fmt_ts(iso: str) -> str:
     """'2026-10-29T14:22:49.128498Z' -> '29 Oct 2026, 14:22 UTC' (deterministic; the ISO value is kept in datetime/title)."""
     m = _TS_PARTS.match(iso)
@@ -552,7 +547,7 @@ def build_transcript(site: Site, t: Transcript) -> None:
         msgs = t.pages[k - 1] if t.pages else []
         parts = []
         title = src.title if k == 1 else f"{src.title} (page {k} of {n_pages})"
-        parts.append(f'<h1>{esc(_nb(src.title))}{f" <span class=tx-pageno>page {k} of {n_pages}</span>" if k > 1 else ""}</h1>')
+        parts.append(f'<h1>{esc(nb_dash(src.title))}{f" <span class=tx-pageno>page {k} of {n_pages}</span>" if k > 1 else ""}</h1>')
         parts.append(facts)
         if k == 1 and t.header:
             intro = render_md(site, src.path, t.header, id_prefix="intro-")

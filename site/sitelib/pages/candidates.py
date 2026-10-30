@@ -10,8 +10,8 @@ import os
 import re
 
 from .. import md, qr
-from ..fragments import (cand_url, cat, compare_url, fmt_mean, fmt_score, judge_url, md_link, play_url,
-                         review_url, standing_html)
+from ..fragments import (cand_url, cat, compare_url, find_line, fmt_mean, fmt_score, inline, judge_url, line_html,
+                         play_url, review_url, standing_html, title_badge)
 from ..layout import Site, esc, figure, prompt_badge
 
 ORDER = 300
@@ -29,37 +29,6 @@ PROCESS_DOCS = ("Judge/README.md", "ReviewOrchestrator/README.md")
 def _read(site: Site, path: str) -> str:
     with open(os.path.join(site.repo, path), encoding="utf-8") as f:
         return f.read()
-
-
-def _inline(site: Site, src: str, text: str) -> str:
-    return md.render_inline(text, link=md_link(site, src))
-
-
-def _split_row(line: str) -> list[str]:
-    return [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", line.strip())[1:-1]]
-
-
-def _line_html(site: Site, src: str, line: str) -> str:
-    """One source line rendered for quoting: block markers (heading hashes, list markers,
-    table pipes) are dropped, the text itself is kept verbatim."""
-    s = line.strip()
-    if s.startswith("|") and s.endswith("|"):
-        cells = [c for c in _split_row(s)]
-        return " · ".join(_inline(site, src, c) for c in cells if c)
-    s = re.sub(r"^#+\s+", "", s)
-    s = re.sub(r"^(?:[-*+]|\d+[.)])\s+", "", s)
-    return _inline(site, src, s)
-
-
-def _find_line(text: str, needle: str) -> int | None:
-    """1-based number of the first line of text that contains needle (first 50 chars)."""
-    needle = needle.strip()[:50]
-    if not needle:
-        return None
-    for i, line in enumerate(text.splitlines(), 1):
-        if needle in line:
-            return i
-    return None
 
 
 def _ev(site: Site, path: str, label: str, line: int | None = None) -> str:
@@ -82,12 +51,6 @@ def _mean_html(site: Site, c) -> str:
 def _how_mean(site: Site, c) -> str:
     n = len(site.model.ranks(c.slug))
     return f"arithmetic mean of the {n} judge rank{'s' if n != 1 else ''} this candidate received"
-
-
-def _title_badge(c) -> str:
-    """Prompt badge after a candidate's name in a title, unless the label already ends with the prompt
-    ('Opus 5.5 · v1' needs no extra [v1])."""
-    return "" if c.label.rstrip().endswith(c.prompt) else " " + prompt_badge(c.prompt)
 
 
 def _score_list(site: Site, c, cls: str = "scores") -> str:
@@ -180,7 +143,7 @@ def _card(site: Site, c) -> str:
     return f"""<article class="card cand-card">
 {thumb}
 <div class="cand-card-body">
-<h2 class="cand-title"><span class="cand-key" style="--key:{cat(c.index)}" aria-hidden="true"></span><a href="{cand_url(c)}">{esc(c.label)}</a>{_title_badge(c)}</h2>
+<h2 class="cand-title"><span class="cand-key" style="--key:{cat(c.index)}" aria-hidden="true"></span><a href="{cand_url(c)}">{esc(c.label)}</a>{title_badge(c)}</h2>
 <p class="muted small cand-sub">{esc(c.vendor)} · {esc(c.product)}</p>
 {rank_line}
 <p class="small muted scores-head">Phase-1 overall scores</p>
@@ -250,7 +213,7 @@ def _review_lines(site: Site, c, rx: re.Pattern) -> list[tuple[str, str, int, st
         p = r.files["REVIEW.md"]
         for i, line in enumerate(r.md.splitlines(), 1):
             if line.strip() and rx.search(line):
-                out.append((f"{label} review", p, i, _line_html(site, p, line)))
+                out.append((f"{label} review", p, i, line_html(site, p, line)))
     return out
 
 
@@ -261,10 +224,10 @@ def _judge_lines(site: Site, c, rx: re.Pattern) -> list[tuple[str, str, int | No
         for row in j.rows:
             if row.slug == c.slug and rx.search(row.justification):
                 out.append((f"{j.label} judge, justification (letter {row.letter})", p,
-                            _find_line(j.md, row.justification), _inline(site, p, row.justification)))
+                            find_line(j.md, row.justification), inline(site, p, row.justification)))
         for s in j.special:
             if c.slug in s.slugs and rx.search(s.raw):
-                out.append((f"{j.label} judge, special element", p, _find_line(j.md, s.raw), _inline(site, p, s.raw)))
+                out.append((f"{j.label} judge, special element", p, find_line(j.md, s.raw), inline(site, p, s.raw)))
     return out
 
 
@@ -278,7 +241,7 @@ def _process_lines(site: Site, c, rx: re.Pattern) -> list[tuple[str, str, int, s
             continue
         for i, line in enumerate(_read(site, p).splitlines(), 1):
             if pat.search(line) and rx.search(line):
-                out.append((p, p, i, _line_html(site, p, line)))
+                out.append((p, p, i, line_html(site, p, line)))
     return out
 
 
@@ -407,7 +370,7 @@ range = lowest–highest of them. A “–” means no rank or review exists.</p
 
 
 def _overall_html(site: Site, r) -> str:
-    return _line_html(site, r.files.get("REVIEW.md", r.dir), r.overall_line)
+    return line_html(site, r.files.get("REVIEW.md", r.dir), r.overall_line)
 
 
 _BARE_OVERALL = re.compile(r"\s*overall(?: score)?\s*:?\s*([\d.]+)\s*(?:/\s*10)?\s*", re.I)
@@ -443,12 +406,12 @@ def _criteria(site: Site, c) -> str:
             continue
         src = r.files.get("REVIEW.md", r.dir)
         rows = "".join(f'<tr><th scope="row">{esc(cr.name)}</th><td class="num"><strong>{esc(fmt_score(cr.score))}</strong></td>'
-                       f"<td>{_inline(site, src, cr.reason)}</td></tr>" for cr in r.criteria)
+                       f"<td>{inline(site, src, cr.reason)}</td></tr>" for cr in r.criteria)
         ev = [site.evidence(r.files[n], n) for n in ("REVIEW.md", "PROMPT.txt") if n in r.files]
         if "TRANSCRIPT.md" in r.files:
             ev.append(f'<span class="evidence"><a href="{esc(site.local(r.files["TRANSCRIPT.md"]))}">review agent transcript</a>'
                       f' <a class="gh" href="{esc(site.gh(r.files["TRANSCRIPT.md"]))}" rel="noopener">GitHub</a></span>')
-        line = _find_line(r.md, r.overall_line)
+        line = find_line(r.md, r.overall_line)
         out.append(f"""<section class="review-block" aria-labelledby="rv-{esc(tid)}">
 <h3 id="rv-{esc(tid)}">{esc(label)} review <span class="muted small">reviewed blind as <code>{esc(r.blind_id)}</code></span></h3>
 {_overall_block(site, r, src, line)}
@@ -476,14 +439,14 @@ def _judges(site: Site, c) -> str:
             missing.append(f'<a href="{judge_url(j)}">{esc(j.label)}</a>')
             continue
         p = j.files["RANKING.md"]
-        line = _find_line(j.md, row.justification)
+        line = find_line(j.md, row.justification)
         mat = f' <span class="muted small">· {"hands-on in a browser" if j.browser else "static material"}</span>'
         items.append(f"""<li class="judge-item">
 <div class="judge-rank" aria-hidden="true"><span class="big">{row.rank}</span><span class="muted small">/ {len(j.rows)}</span></div>
 <div class="judge-body">
 <h3><a href="{judge_url(j)}">{esc(j.label)} judge</a>{mat}</h3>
 <p class="small muted">Rank <strong>{row.rank}</strong> of {len(j.rows)} · saw this candidate as letter <strong class="letter">{esc(row.letter)}</strong> · judged against prompt {prompt_badge(j.letter_prompt.get(row.letter, row.prompt))}</p>
-<blockquote class="quote"><p>{_inline(site, p, row.justification)}</p>
+<blockquote class="quote"><p>{inline(site, p, row.justification)}</p>
 <cite>{esc(j.label)} judge, ranking justification for {esc(row.letter)}, verbatim — {_ev(site, p, "RANKING.md" + (f" line {line}" if line else ""), line)}</cite></blockquote>
 </div>
 </li>""")
@@ -506,8 +469,8 @@ def _specials(site: Site, c) -> str:
             for L, sl in zip(s.letters, s.slugs):
                 who = "this candidate" if sl == c.slug else _label_link(m.cand(sl))
                 letters.append(f'<span class="letter">{esc(L)}</span> = {who}')
-            line = _find_line(j.md, s.raw)
-            items.append(f"""<li><blockquote class="quote"><p>{_inline(site, p, s.raw)}</p>
+            line = find_line(j.md, s.raw)
+            items.append(f"""<li><blockquote class="quote"><p>{inline(site, p, s.raw)}</p>
 <cite><a href="{judge_url(j)}">{esc(j.label)} judge</a> · {"; ".join(letters)} — {_ev(site, p, "RANKING.md" + (f" line {line}" if line else ""), line)}</cite></blockquote></li>""")
     if not items:
         return ('<p class="muted">No judge listed a special element for this candidate. '
@@ -543,9 +506,9 @@ def _gallery(site: Site, c) -> str:
             f = figure(site, s)
             if s.caption and not shared:
                 f = f.replace("</figcaption></figure>",
-                              f'<span class="cap-quote">“{_line_html(site, src, s.caption)}”</span></figcaption></figure>')
+                              f'<span class="cap-quote">“{line_html(site, src, s.caption)}”</span></figcaption></figure>')
             figs.append(f)
-        sharedq = (f'<blockquote class="quote small"><p>{_line_html(site, src, first.caption)}</p>'
+        sharedq = (f'<blockquote class="quote small"><p>{line_html(site, src, first.caption)}</p>'
                    f'<cite>Caption line, verbatim — {site.evidence(src, os.path.basename(src))}</cite></blockquote>') if shared else ""
         out.append(f'<section class="shot-group"><h3>{head} <span class="muted small">{len(shots)} screenshot{"s" if len(shots) != 1 else ""}</span></h3>'
                    f'{sharedq}<div class="gallery">{"".join(figs)}</div></section>')
@@ -556,12 +519,12 @@ def _gallery(site: Site, c) -> str:
 def _facts(site: Site, c) -> str:
     m = site.model
     sha_text = _read(site, m.sha_file)
-    sha_line = _find_line(sha_text, c.html_path)
+    sha_line = find_line(sha_text, c.html_path)
     readme = "ReviewOrchestrator/README.md"
     bytes_note = ""
     if os.path.isfile(os.path.join(site.repo, readme)):
         rt = _read(site, readme)
-        bl = _find_line(rt, f"`{c.folder}`")
+        bl = find_line(rt, f"`{c.folder}`")
         if bl and f"({c.bytes:,}" in rt.splitlines()[bl - 1]:
             bytes_note = f' <span class="small muted">matches {_ev(site, readme, "ReviewOrchestrator/README.md §1", bl)}</span>'
     ext = ("none" if not c.external else
@@ -579,7 +542,7 @@ def _facts(site: Site, c) -> str:
         ("Product", esc(c.product)),
         ("Model (as recorded)", f"<code>{esc(c.model)}</code>"),
         ("Effort (as recorded)", esc(c.effort)),
-        ("Provenance", _inline(site, "site/candidates.toml", c.provenance)),
+        ("Provenance", inline(site, "site/candidates.toml", c.provenance)),
         ("Prompt", f'<a class="badge-link" href="@/methodology/#prompts">{prompt_badge(c.prompt)}</a> <code>prompt{esc(c.prompt[1:])}.txt</code>'),
         ("Chat date", esc(c.date)),
         ("Source chat", f'<a href="{esc(c.source_url)}" rel="noopener">{esc(c.source_url)}</a>'),
