@@ -1,0 +1,125 @@
+/* rankings/ — judge × candidate matrix, Kendall τ matrix, bump chart */
+
+/* controls */
+.rk-controls { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; align-items: flex-end; margin: 0 0 .75rem; }
+.rk-controls[hidden], .rk-status[hidden], .rk-legend[hidden] { display: none; }
+.rk-seg { border: 0; padding: 0; margin: 0; min-width: 0; }
+.rk-seg legend { font-size: .8rem; font-weight: 600; color: var(--muted); padding: 0; margin-bottom: .25rem; letter-spacing: .02em; }
+.rk-seg-opts { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); padding: 2px; }
+.rk-seg label { position: relative; display: inline-flex; }
+.rk-seg input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.rk-seg label span { display: inline-flex; align-items: center; min-height: 2.25rem; padding: .2rem .8rem; border-radius: 6px; font-size: .9rem; color: var(--muted); }
+.rk-seg input:checked + span { background: var(--surface); color: var(--fg); font-weight: 600; box-shadow: var(--shadow); outline: 1px solid var(--border); }
+.rk-seg input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 1px; }
+.rk-btns { display: flex; gap: .5rem; flex-wrap: wrap; }
+.rk-btns .btn { min-height: 2.5rem; font-size: .9rem; padding: .35rem .9rem; }
+.rk-status { margin: 0 0 .6rem; }
+.rk-legend { display: flex; flex-wrap: wrap; gap: .4rem 1.25rem; align-items: center; margin: 0 0 .75rem; }
+
+/* the matrix */
+.rk-matrix { font-size: .92rem; }
+.rk-matrix th, .rk-matrix td { vertical-align: middle; }
+.rk-matrix thead th { vertical-align: bottom; padding: .4rem .5rem; }
+.rk-matrix tbody th { font-weight: 500; white-space: nowrap; }
+.rk-matrix td { white-space: nowrap; }
+.rk-matrix td.num { font-variant-numeric: tabular-nums; }
+.rk-sort { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: .3rem; cursor: pointer; font-weight: 600; color: var(--fg); padding: .15rem .1rem; border-radius: 4px; min-height: 1.75rem; }
+.rk-sort:hover .rk-label { text-decoration: underline; text-underline-offset: .2em; }
+.rk-sort:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+th.num .rk-sort { flex-direction: row-reverse; }
+.rk-ind { display: inline-block; width: .8em; text-align: center; color: var(--muted); font-size: .8em; }
+.rk-matrix.js th:not([aria-sort]) .rk-ind::before { content: "↕"; opacity: .55; }
+.rk-matrix.js th[aria-sort="ascending"] .rk-ind::before { content: "▲"; color: var(--accent); }
+.rk-matrix.js th[aria-sort="descending"] .rk-ind::before { content: "▼"; color: var(--accent); }
+.rk-matrix th[aria-sort] { box-shadow: inset 0 -3px 0 var(--accent); }
+.rk-meta { display: block; font-size: .72rem; font-weight: 500; color: var(--muted); margin-top: .1rem; white-space: nowrap; }
+th.num .rk-meta { text-align: right; }
+.rk-meta a { color: var(--muted); }
+.rk-meta .derived { font-size: .65rem; }
+.rk-mat { display: inline-block; font-size: .68rem; font-weight: 600; letter-spacing: .03em; padding: 0 .35em; border-radius: 3px; border: 1px solid currentColor; line-height: 1.45; }
+.rk-mat { color: var(--muted); border-color: var(--border-strong); }
+.rk-mat-browser { color: var(--fg); border-style: solid; background: var(--surface); }
+.rk-mat-static { border-style: dashed; }
+.rk-matrix th.rk-derived, .rk-matrix td.rk-mean, .rk-matrix td.rk-spread { background: color-mix(in srgb, var(--surface-2) 45%, var(--surface)); }
+.rk-matrix thead th.rk-derived { background: var(--surface-2); }
+.rk-matrix td.rk-mean { font-weight: 700; }
+.rk-matrix td.rk-spread + td { border-left: 2px solid var(--border); }
+.rk-group { text-align: center; font-weight: 650; font-size: var(--text-sm); padding: .35rem .5rem .2rem; border-bottom: 1px solid var(--border-strong) !important; }
+.rk-gsub { display: block; font-weight: 400; font-size: var(--text-xs); color: var(--muted); }
+.rk-group-r, .rk-matrix th.rk-judge + th.rk-review { border-left: 2px solid var(--border); }
+.rk-judge .rk-label, .rk-review .rk-label { white-space: normal; max-width: 6.5rem; text-align: right; }
+.rk-judge .rk-sort, .rk-review .rk-sort { align-items: flex-end; }
+.rk-sp { font-variant-numeric: tabular-nums; margin-right: .4rem; font-size: .88rem; }
+.rk-glyph { width: 64px; height: 14px; vertical-align: middle; color: var(--fg); overflow: visible; }
+.rk-glyph .axis { stroke: var(--border); stroke-width: 1; }
+.rk-glyph .rng { stroke: currentColor; stroke-width: 2; stroke-linecap: round; opacity: .55; }
+.rk-glyph .d { fill: currentColor; fill-opacity: .55; }
+.rk-glyph .mu { stroke: var(--fg); stroke-width: 1.5; }
+.rk-matrix tbody tr:hover > * { background-color: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.rk-matrix .tie, .rk-matrix .badge { margin-left: .15rem; }
+
+/* sticky identity columns while the table scrolls sideways */
+.rk-stick { position: sticky; z-index: 1; background: var(--surface); }
+thead .rk-stick { background: var(--surface-2); z-index: 2; }
+.rk-stick-1 { left: 0; width: 3.4rem; min-width: 3.4rem; max-width: 3.4rem; }
+.rk-stick-2 { left: 3.4rem; box-shadow: 1px 0 0 var(--border); }
+
+/* heatmap: colours come from per-cell custom properties, numbers stay */
+.rk-matrix.heat-on td.rk-heat { background: var(--hbg); color: var(--hfg); }
+.rk-matrix.heat-on td.rk-heat a { color: inherit; text-decoration-thickness: 1px; }
+.rk-matrix.heat-on tbody tr:hover td.rk-heat { background: var(--hbg); box-shadow: inset 0 0 0 2px var(--surface); }
+
+/* reading note */
+.rk-read .note ul { margin: 0; padding-left: 1.1rem; }
+.rk-read .note li { margin-bottom: .35rem; }
+
+/* Kendall τ */
+.rk-formula { font-family: var(--mono); font-size: .95rem; background: var(--surface-2); padding: .5rem .8rem; border-radius: 8px; display: inline-block; max-width: 100%; overflow-x: auto; }
+.rk-kendall { width: auto; min-width: 100%; }
+.rk-kendall th, .rk-kendall td { vertical-align: middle; }
+.rk-kendall tbody th { white-space: nowrap; font-weight: 500; }
+.rk-kendall thead th { white-space: normal; min-width: 5.5rem; }
+.rk-tau { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 5rem; }
+.rk-tau-pos { background: color-mix(in srgb, var(--accent) var(--mix), var(--surface)); }
+.rk-tau-neg { background: color-mix(in srgb, var(--bad) var(--mix), var(--surface)); }
+.rk-diag { background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--surface) 35%, transparent) 6px 8px); }
+.rk-n { display: block; font-size: .7rem; font-weight: 400; color: var(--fg); opacity: .75; }
+.rk-avg { font-variant-numeric: tabular-nums; border-left: 2px solid var(--border); }
+
+/* bump chart */
+.rk-chart-scroll { overflow-x: auto; max-width: 100%; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: .5rem 0; margin: 0 0 1rem; }
+.rk-chart-scroll:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.rk-bump { min-width: 50rem; max-width: 64rem; margin: 0 auto; }
+.rk-bump .rk-jh { font-weight: 600; font-size: 13px; }
+.rk-bump .rk-jm, .rk-bump .rk-axis { font-size: 11px; }
+.rk-bump .rk-bl { font-size: 13px; fill: var(--fg); }
+.rk-bump .ln { fill: none; stroke: var(--c); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.rk-bump .case { fill: none; stroke: var(--border-strong); stroke-opacity: .45; stroke-width: 4.5; stroke-linejoin: round; stroke-linecap: round; }
+.rk-bump .hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; }
+.rk-bump .mk > * { fill: var(--c); stroke: var(--surface); stroke-width: 2; }
+.rk-series { transition: opacity .15s; }
+.rk-bump:has(.rk-series:hover) .rk-series:not(:hover) { opacity: .18; }
+.rk-bump .rk-series:hover .ln { stroke-width: 3.5; }
+.rk-bump .rk-series:hover .rk-bl { font-weight: 700; }
+
+/* evidence + aggregated table */
+.rk-agg { font-size: .8rem; white-space: pre; }
+.rk-evidence { padding-left: 1.1rem; }
+.rk-evidence li { margin-bottom: .2rem; }
+
+@media (max-width: 40rem) {
+  .rk-controls { gap: .6rem; }
+  .rk-seg label span { padding: .2rem .65rem; }
+  .rk-matrix { font-size: .88rem; }
+  .rk-matrix th, .rk-matrix td { padding-inline: .4rem; }
+  .rk-stick-1 { width: 2.6rem; min-width: 2.6rem; max-width: 2.6rem; }
+  .rk-stick-2 { left: 2.6rem; }
+  .rk-matrix tbody th.rk-stick-2 .badge { display: none; }
+  .rk-matrix tbody th.rk-stick-2 { white-space: normal; min-width: 8rem; max-width: 9rem; line-height: 1.3; }
+}
+.rk-formula span { white-space: nowrap; }
+.rk-kendall tbody th { position: sticky; left: 0; background: var(--surface); z-index: 1; box-shadow: 1px 0 0 var(--border); }
+.rk-matrix td.rk-spread { padding-right: .9rem; }
+.rk-cov { display: block; font-size: var(--text-xs); font-weight: 400; color: var(--muted); }
+.rk-legend .legend-scale { flex-wrap: wrap; row-gap: 2px; }
+.rk-legend .legend-scale > span:not(.heat-swatches) { white-space: nowrap; }
