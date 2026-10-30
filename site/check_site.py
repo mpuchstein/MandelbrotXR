@@ -469,7 +469,7 @@ def main(argv=None) -> int:
                     page.goto(base + url, wait_until="load")
                     nviol += run_axe(page, axe, url, problems, f"{theme}/{width}")
                 ctx.close()
-        results["axe"] = f"{len(targets)} page types × light/dark × 390/1440: {nviol} serious/critical violations"
+        results["axe"] = f"{len(targets)} {'pages' if a.axe_all else 'page types'} × light/dark × 390/1440: {nviol} serious/critical violations"
         browser.close()
 
     for k, v in results.items():
