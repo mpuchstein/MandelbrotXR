@@ -262,6 +262,16 @@ def _call_desc(name: str, inner: str) -> str:
     return first
 
 
+def tool_chip(name: str) -> str:
+    """The tool-name chip of a fold summary. A long MCP name ('mcp__server__tool') shows its last segment;
+    the full name is in the title and in the accessible text, so nothing is lost."""
+    parts = name.split("__")
+    if name.startswith("mcp__") and len(parts) >= 3:
+        return (f'<code class="fold-tool" title="{esc(name)}"><span class="sr-only">{esc("__".join(parts[:-1]))}__</span>'
+                f'{esc(parts[-1])}</code>')
+    return f'<code class="fold-tool" title="{esc(name)}">{esc(name)}</code>'
+
+
 def _demote(html_: str, by: int) -> str:
     return _HEADING_TAG.sub(lambda m: f"<{m.group(1)}h{min(6, int(m.group(2)) + by)}{m.group(3)}", html_)
 
@@ -340,7 +350,7 @@ def render_body(body: str, link) -> str:
             inner = _fence_inner(fence)
             peek = desc or _call_desc(name, inner)
             parts.append(
-                f'<details class="fold fold-call"><summary><span class="fold-kind">Tool call</span> <code>{esc(name)}</code>'
+                f'<details class="fold fold-call"><summary><span class="fold-kind">Tool call</span> {tool_chip(name)}'
                 f'{f" <span class=fold-peek>{esc(_clip(peek))}</span>" if peek else ""}'
                 f' <span class="fold-size">{esc(_size(inner))}</span></summary>\n{md.render(fence, link=link, heading_ids=False)}</details>')
         else:
@@ -355,6 +365,11 @@ def render_body(body: str, link) -> str:
                 f' <span class="fold-size">{esc(_size(inner.strip()))}</span></summary>\n'
                 f'{md.render(inner, link=link, heading_ids=False)}</details>')
     return _demote("\n".join(parts), 3)
+
+
+def _nb(text: str) -> str:
+    """Keep a dash with the word before it (' — ' -> NBSP + '— ') so a wrapped title never starts a line with it."""
+    return re.sub(r" ([—–]) ", "\u00a0\\1 ", text)
 
 
 def fmt_ts(iso: str) -> str:
@@ -486,7 +501,7 @@ def tools_bar(t: Transcript) -> str:
     jump = ""
     if len(t.pages) > 1 or len(t.msgs) > 20:
         jump = (f'<form class="tx-jump" data-tx-jump><label for="tx-jump-n">Jump to message</label> '
-                f'<input id="tx-jump-n" type="number" inputmode="numeric" min="1" max="{len(t.msgs)}" required> '
+                f'<input id="tx-jump-n" type="number" inputmode="numeric" min="1" max="{len(t.msgs)}" placeholder="1–{len(t.msgs)}" required> '
                 f'<button class="btn" type="submit">Go</button></form>')
     return (f'<div class="toolbar tx-tools js-only" data-tx-tools>'
             f'<button class="btn" type="button" data-fold="open">Expand all</button>'
@@ -527,7 +542,7 @@ def build_transcript(site: Site, t: Transcript) -> None:
     crumbs_base = [("Transcripts", "transcripts/")]
     ev = site.evidence(src.path, src.path).replace(f">{esc(src.path)}</a>", f">{path_html(src.path)}</a>", 1)
     facts = (f'<ul class="tx-meta"><li>{ev}</li>'
-             f'<li>{len(t.msgs):,} message{"s" if len(t.msgs) != 1 else ""} · {t.lines:,} lines'
+             f'<li class="num">{len(t.msgs):,} message{"s" if len(t.msgs) != 1 else ""} · {t.lines:,} lines'
              f'{f" · {n_pages} pages" if n_pages > 1 else ""}</li>')
     rel = related(site, src)
     if rel:
@@ -537,7 +552,7 @@ def build_transcript(site: Site, t: Transcript) -> None:
         msgs = t.pages[k - 1] if t.pages else []
         parts = []
         title = src.title if k == 1 else f"{src.title} (page {k} of {n_pages})"
-        parts.append(f'<h1>{esc(src.title)}{f" <span class=tx-pageno>page {k} of {n_pages}</span>" if k > 1 else ""}</h1>')
+        parts.append(f'<h1>{esc(_nb(src.title))}{f" <span class=tx-pageno>page {k} of {n_pages}</span>" if k > 1 else ""}</h1>')
         parts.append(facts)
         if k == 1 and t.header:
             intro = render_md(site, src.path, t.header, id_prefix="intro-")
@@ -599,7 +614,7 @@ def build_index(site: Site, ts: list[Transcript]) -> None:
     def row(t: Transcript, label: str) -> str:
         return (f'<tr><th scope="row"><a href="{site.local(t.src.path)}">{label}</a></th>'
                 f'<td class="num">{len(t.msgs)}</td><td class="num">{t.lines:,}</td><td class="num">{len(t.pages) or 1}</td>'
-                f'<td><a class="gh" href="{esc(site.gh(t.src.path))}" rel="noopener">GitHub</a></td></tr>')
+                f'<td><span class="evidence"><a class="gh" href="{esc(site.gh(t.src.path))}" rel="noopener">GitHub</a></span></td></tr>')
 
     head = ('<colgroup><col class="c-name"><col class="c-msgs"><col class="c-lines"><col class="c-pages"><col class="c-src"></colgroup>'
             '<thead><tr><th scope="col">Transcript</th><th scope="col" class="num">Messages</th>'
@@ -622,17 +637,18 @@ def build_index(site: Site, ts: list[Transcript]) -> None:
                 tds = []
                 for ty, _ in types:
                     t = cell.get((ty, s))
-                    tds.append(f'<td><a href="{site.local(t.src.path)}">{esc(stats(t))}</a> '
-                               f'<a class="gh small" href="{esc(site.gh(t.src.path))}" rel="noopener">GitHub</a></td>'
+                    tds.append(f'<td><span class="evidence"><a class="tx-stat" href="{site.local(t.src.path)}">{esc(stats(t))}</a> '
+                               f'<a class="gh" href="{esc(site.gh(t.src.path))}" rel="noopener">GitHub</a></span></td>'
                                if t else '<td class="muted">–</td>')
-                rows.append(f'<tr><th scope="row"><a href="{cand_url(m.cand(s))}">{esc(m.cand(s).label)}</a></th>{"".join(tds)}</tr>')
+                lab = esc(m.cand(s).label).replace(" · ", "\u00a0·\u00a0")
+                rows.append(f'<tr><th scope="row"><a class="tx-cand" href="{cand_url(m.cand(s))}">{lab}</a></th>{"".join(tds)}</tr>')
             parts.append('<div class="table-wrap matrix-wrap scroll-hint tx-wrap" role="region" aria-label="Review agent logs: candidate × review type">'
                          '<table class="tx-matrix"><caption class="sr-only">Review agent logs by candidate (rows) and '
                          'review type (columns)</caption><thead><tr><th scope="col">Candidate</th>'
                          + "".join(f'<th scope="col">{esc(lab)} review</th>' for _, lab in types)
                          + f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
                          '<p class="small muted tx-cap">Rows: candidates; columns: review types. Each cell is one '
-                         'review agent log (messages · lines) with its GitHub copy.</p>')
+                         'review agent log (messages · lines) with its GitHub copy. On narrow screens the table scrolls sideways.</p>')
             rest = [t for t in items if t not in cell.values()]
             if rest:
                 parts.append(f'<div class="table-wrap tx-wrap" role="region" aria-label="{esc(heading)}: other logs"><table class="tx-list">{head}<tbody>{"".join(row(t, esc(t.src.title)) for t in rest)}</tbody></table></div>')

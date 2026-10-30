@@ -16,7 +16,7 @@ section.data-sec h3 { margin-top: var(--space-5); }
 .data-file-name code { background: none; padding: 0; font-size: 1em; }
 .data-file-desc { font-size: var(--text-sm); }
 .data-sec time, .data-head time { white-space: nowrap; }
-.table-wrap:has(> table.schema) { max-width: 64rem; }
+/* schema tables use the same full width as the file-card grid above them */
 table.schema { width: 100%; table-layout: fixed; font-size: .9375rem; }
 table.schema thead th:first-child { width: 40%; }
 table.schema th[scope="row"] { font-weight: 500; overflow-wrap: break-word; vertical-align: top; }
@@ -27,19 +27,29 @@ table.schema td { vertical-align: top; overflow-wrap: anywhere; }
 table.schema .derived { margin-left: var(--space-1); }
 .data-notes { padding-left: 1.2em; }
 .data-notes li { margin-bottom: var(--space-2); }
+.data-paths { margin: var(--space-1) 0 0; padding-left: 1.2em; }
+.data-paths li { margin-bottom: var(--space-1); }
+/* dates: proportional figures (tabular figures widen the hyphens in 2026-10-30) */
+.data-head time, .data-sec time, .cl-meta time { font-variant-numeric: normal; }
 /* folded examples grow instead of scrolling inside the page (no unfocusable scroll regions) */
 .data-sec details.fold pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-sm); }
 
 /* changelog */
-.changelog { list-style: none; margin: var(--space-4) 0 0; padding: 0; }
+/* capped so each entry's score / first pick sits near its title */
+.changelog { list-style: none; margin: var(--space-4) 0 0; padding: 0; max-width: 48rem; }
 .cl-commit { position: relative; max-width: none; padding: 0 0 var(--space-5) var(--space-4); border-left: 2px solid var(--border); margin-left: var(--space-1); }
 .cl-commit::before {
   content: ""; position: absolute; left: -7px; top: .35em; width: 12px; height: 12px; border-radius: 50%;
   background: var(--bg); border: 2px solid var(--accent);
 }
 .cl-commit:last-child { border-left-color: transparent; padding-bottom: 0; }
-.cl-meta { font-size: var(--text-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.cl-meta { font-size: var(--text-sm); color: var(--muted); }
 .cl-meta a { color: inherit; }
+/* each meta item wraps as a unit; the separator travels with the item it introduces */
+.cl-mi { white-space: nowrap; }
+.cl-mi + .cl-mi::before { content: "·\00a0"; }
+.cl-meta code { font-size: .92em; color: var(--fg); }
+.cl-entries li:hover { background: var(--surface); }
 .cl-subject { font-size: var(--text-lg); margin: var(--space-1) 0 var(--space-3); scroll-margin-top: var(--space-3); }
 .cl-group { font-size: var(--text-sm); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: var(--space-4) 0 var(--space-2); }
 .cl-entries { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
@@ -48,6 +58,8 @@ table.schema .derived { margin-left: var(--space-1); }
   padding: var(--space-2) 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere;
 }
 .cl-what { min-width: 0; }
+.cl-what a { color: var(--fg); text-decoration-color: var(--accent); }
+.cl-what a:hover { color: var(--accent); }
 /* middle column: one style in every group (score or first pick), right-aligned with tabular figures */
 .cl-mid { font-weight: 600; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cl-mid .muted { font-weight: 400; }

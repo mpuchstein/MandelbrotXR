@@ -56,7 +56,7 @@ details.tx-index > summary { cursor: pointer; font-weight: 600; padding: var(--s
 .msg-num:hover { color: var(--accent); text-decoration: underline; }
 .msg-body { max-width: none; overflow-wrap: break-word; min-width: 0; }
 .msg-body > :last-child { margin-bottom: var(--space-2); }
-.msg-body p, .msg-body li { max-width: var(--measure); }
+.msg-body p, .msg-body li { max-width: var(--measure-text); }
 .msg-body h4, .msg-body h5, .msg-body h6 { font-size: var(--text-base); margin: var(--space-4) 0 var(--space-2); }
 /* code and tool output wrap and grow (they are folded in <details>); no nested scroll regions */
 .msg-body pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-sm); }
@@ -65,27 +65,40 @@ details.tx-index > summary { cursor: pointer; font-weight: 600; padding: var(--s
 /* folds: thinking, tool calls, tool results */
 .msg-body details.fold, .msg-body details { padding: 0 var(--space-3); margin: 0 0 var(--space-2); background: var(--bg); }
 .msg-tool .msg-body details.fold { background: var(--surface); }
-.msg-body details > summary { display: block; list-style: none; padding: var(--space-1) 0; font-weight: 400; font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* summary row: kind, tool chip, preview (shrinks, ellipsis) and the size metadata (never clipped, right-aligned) */
+.msg-body details > summary { display: flex; align-items: baseline; gap: 0 var(--space-1); list-style: none; padding: var(--space-1) 0; font-weight: 400; font-size: var(--text-sm); white-space: nowrap; min-width: 0; }
+.msg-body details > summary > * { flex: none; }
+.msg-body details > summary > .fold-peek { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.msg-body details > summary > .fold-size { margin-left: auto; padding-left: var(--space-2); }
+.msg-body details > summary code.fold-tool { max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; }
 .msg-body details > summary::-webkit-details-marker { display: none; }
 /* tool names: one chip style in call and result rows; "Tool call" / "Tool result" tells them apart */
 .msg-body details > summary code { font-weight: 600; color: var(--fg); background: var(--surface-2); border: 1px solid var(--border); }
-.msg-body details > summary::before { content: "▸"; display: inline-block; width: 1.1em; color: var(--muted); }
+.msg-body details > summary::before { content: "▸"; display: inline-block; width: 1.1em; flex: none; color: var(--muted); }
 .msg-body details[open] > summary::before { content: "▾"; }
-.msg-body details[open] > summary { white-space: normal; border-bottom: 1px solid var(--border); margin-bottom: var(--space-2); }
+.msg-body details[open] > summary { flex-wrap: wrap; white-space: normal; border-bottom: 1px solid var(--border); margin-bottom: var(--space-2); }
+.msg-body details[open] > summary > .fold-peek { white-space: normal; }
 .fold-kind { font-weight: 600; color: var(--fg); }
 .fold-kind code { font-weight: 600; }
 .fold-peek { color: var(--muted); }
 .fold-size { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.fold-size::before { content: "· "; }
+/* the size sits apart, right-aligned (or on its own line on phones): no separator needed */
+.fold-tool .sr-only { white-space: nowrap; }
 .fold-thinking > summary .fold-kind { font-style: italic; }
 
 /* ---- transcripts index: every table shares one width and fixed column widths, so the numeric
    columns line up down the page; row titles are regular-weight links */
-.tx-wrap { max-width: 60rem; }
+/* two table widths on this page: the reading measure (the review-log matrix) and the full content width (lists) */
+.tx-wrap { max-width: none; }
+.tx-wrap.matrix-wrap { max-width: calc(var(--measure) + var(--space-5)); }
 .tx-cap { max-width: var(--measure); margin-top: calc(-1 * var(--space-2)); }
-.tx-matrix td { white-space: nowrap; font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.tx-matrix td { white-space: nowrap; font-size: var(--text-sm); }
 .tx-matrix th[scope="row"], .tx-list th[scope="row"] { white-space: nowrap; font-weight: 500; }
 .tx-matrix .gh, td .gh { color: var(--muted); }
+/* candidate labels: neutral text with an underline, as on the judges and reviews pages */
+.tx-matrix a.tx-cand { color: var(--fg); }
+.tx-matrix a.tx-cand:hover { color: var(--accent); }
+.tx-matrix .tx-stat { white-space: nowrap; font-variant-numeric: tabular-nums; }
 @media (min-width: 40rem) {
   table.tx-list { table-layout: fixed; }
   table.tx-list col.c-msgs, table.tx-list col.c-lines { width: 8rem; }
@@ -99,17 +112,19 @@ details.tx-index > summary { cursor: pointer; font-weight: 600; padding: var(--s
 @media (max-width: 39.99rem) {
   table.tx-list th:nth-child(4), table.tx-list td:nth-child(4), table.tx-list th:nth-child(5), table.tx-list td:nth-child(5) { display: none; }
   table.tx-list th[scope="row"] { white-space: normal; }
-  .tx-matrix th[scope="row"] { white-space: normal; min-width: 7rem; }
-  .tx-matrix td { white-space: normal; min-width: 7.5rem; }
-  .tx-matrix td .gh { display: block; }
+  /* every cell keeps two lines: "N msgs · N lines", then "↗ GitHub"; the sticky name column has a right rule */
+  .tx-matrix th[scope="row"] { white-space: normal; min-width: 8.5rem; max-width: 9.5rem; box-shadow: 1px 0 0 var(--border-strong); }
+  .tx-matrix thead th:first-child { box-shadow: 1px 0 0 var(--border-strong); }
+  .tx-matrix td { white-space: normal; }
+  .tx-matrix td .gh { display: block; width: fit-content; }
 }
 /* scroll affordance: an edge shadow shows while more columns are hidden on that side */
 .scroll-hint, .src-doc .table-wrap {
   background:
     linear-gradient(to right, var(--surface) 30%, transparent) left center / 32px 100% no-repeat local,
     linear-gradient(to left, var(--surface) 30%, transparent) right center / 32px 100% no-repeat local,
-    radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--fg) 22%, transparent), transparent) left center / 12px 100% no-repeat scroll,
-    radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--fg) 22%, transparent), transparent) right center / 12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--fg) 30%, transparent), transparent) left center / 16px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--fg) 30%, transparent), transparent) right center / 16px 100% no-repeat scroll,
     var(--surface);
 }
 
@@ -132,7 +147,8 @@ pre.src > code > span:target::before { color: var(--mark-fg); }
 .src-tree { padding-left: 0; font-size: var(--text-sm); }
 .src-tree li { max-width: none; padding: 0; overflow-wrap: anywhere; }
 .src-tree .dir > a { font-weight: 600; }
-.tx-meta { list-style: none; padding: 0; margin: 0 0 var(--space-3); display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); font-size: var(--text-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+/* meta row: the message column's width; tabular figures only on the counts (they widen hyphens in paths) */
+.tx-meta { list-style: none; padding: 0; margin: 0 0 var(--space-3); display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); font-size: var(--text-sm); color: var(--muted); max-width: calc(var(--measure) + var(--space-5)); }
 .tx-meta li { max-width: none; overflow-wrap: anywhere; }
 @media (max-width: 47.99rem) { .tx-tools { position: static; border-bottom: 0; padding: 0; } }
 pre.src > code > span[id] { scroll-margin-top: 25vh; }
@@ -141,7 +157,7 @@ pre.src > code > span[id] { scroll-margin-top: 25vh; }
 .src-doc .md > :first-child { margin-top: 0; }
 .src-doc .md > :last-child { margin-bottom: 0; }
 .src-view { margin: 0 0 var(--space-3); } .src-view > summary { padding: var(--space-2) 0; }
-.pager { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: "prev next" "pages pages"; align-items: center; }
+.pager { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: "prev next" "pages pages"; align-items: center; max-width: calc(var(--measure) + var(--space-5)); }
 .pager .pg-prev { grid-area: prev; }
 .pager .pg-next { grid-area: next; justify-self: end; }
 .pager ol { grid-area: pages; justify-content: center; }
@@ -160,6 +176,23 @@ pre.src > code > span[id] { scroll-margin-top: 25vh; }
 @media (max-width: 39.99rem) {
   .msg { padding: var(--space-2) var(--space-2) var(--space-1); border-left-width: 3px; }
   .msg-body details.fold, .msg-body details { padding: 0 var(--space-2); }
-  .msg-body details:not([open]) > summary { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  /* closed folds: kind + tool chip + preview on line 1 (ellipsis), the size metadata on its own line 2 */
+  .msg-body details:not([open]) > summary { flex-wrap: wrap; }
+  .msg-body details:not([open]) > summary > .fold-peek { flex: 1 1 0; }
+  .msg-body details:not([open]) > summary > .fold-size { flex-basis: 100%; margin-left: 0; padding-left: 1.1em; }
 }
 .nw { white-space: nowrap; }
+
+/* tabular figures widen hyphens: rendered Markdown tables keep proportional figures except numeric columns */
+.src-doc .md table, .tx-intro .md table, .msg-body table { font-variant-numeric: normal; }
+.src-doc .md td.num, .src-doc .md th.num { font-variant-numeric: tabular-nums; text-align: right; }
+/* rendered document tables shrink to their content (numeric columns right-aligned via td.num) */
+@media (min-width: 40rem) { .src-doc .md .table-wrap { width: fit-content; max-width: 100%; } }
+/* meta-row chips at the meta text size, in the text colour */
+.src-meta code { font-size: .92em; color: var(--fg); }
+/* phones: the first column (folder names) is sticky with a right rule, breaks only at - _ / into two lines */
+@media (max-width: 39.99rem) {
+  .src-doc .md td:first-child, .src-doc .md th:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--border-strong); min-width: 11rem; max-width: 12rem; }
+  .src-doc .md thead th:first-child { background: var(--surface-2); z-index: 2; }
+  .src-doc .md td:first-child code { font-size: var(--text-xs); }
+}

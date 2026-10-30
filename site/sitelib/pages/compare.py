@@ -14,8 +14,8 @@ import re
 from fractions import Fraction
 from itertools import combinations
 
-from .. import md
-from ..fragments import (cand_url, caveats_html, cat, cat_dash, compare_url, fmt_mean, fmt_score, judge_url, marker_svg, md_link,
+from .. import fragments, md
+from ..fragments import (cand_url, cat, cat_dash, compare_url, fmt_mean, fmt_score, judge_url, marker_svg, md_link,
                          play_url, review_url, standing_html)
 from ..layout import Site, esc, figure, prompt_badge
 
@@ -60,6 +60,11 @@ def _tag(side: str, c, *, name: bool = False) -> str:
     """Side marker: a coloured bar plus the letter 'A'/'B' as text (never colour alone)."""
     nm = f' <span class="cmp-tag-name">{esc(c.label)}</span>' if name else ""
     return f'<span class="cmp-tag" style="--side:{cat(c.index)}"><span class="cmp-tag-l">{side}</span>{nm}</span>'
+
+
+def _title_badge(c) -> str:
+    """Prompt badge after a name in a title, unless the label already ends with the prompt ('Opus 5.5 · v1')."""
+    return "" if c.label.rstrip().endswith(c.prompt) else " " + prompt_badge(c.prompt)
 
 
 def _cols(a_html: str, b_html: str, a, b, cls: str = "") -> str:
@@ -120,7 +125,7 @@ def suggestions(m) -> list[tuple[object, object, str, str]]:
     for mean, cs in groups.items():
         for a, b in combinations(cs, 2):
             add(a, b, "Tied on mean rank",
-                f"Both have a mean rank of {esc(fmt_mean(mean))} {DERIVED} over all {len(m.judges)} judges.")
+                f"Both have a mean rank of {esc(fmt_mean(mean))} over all {len(m.judges)} judges.")
 
     # 2. same folder apart from the trailing -v<N>: one model, two prompts
     fams: dict[str, list] = {}
@@ -147,14 +152,16 @@ def suggestions(m) -> list[tuple[object, object, str, str]]:
     if best and best[0] > 0:
         rng, a, b, lo, hi = best
         add(a, b, "Judges disagree most",
-            f"The per-judge rank difference (A − B) runs from {_signed(lo)} to {_signed(hi)}, a range of {rng} places "
-            f"{DERIVED}: the widest of any pair.")
+            f"The per-judge rank difference (A − B) runs from {_signed(lo)} to {_signed(hi)}, a range of {rng} places: "
+            f"the widest of any pair.")
     return [(a, b, " · ".join(ts), " ".join(rs)) for a, b, ts, rs in out]
 
 
 # ---------------------------------------------------------------- picker
 
-def picker(site: Site, a=None, b=None, *, swap: bool = True) -> str:
+def picker(site: Site, a=None, b=None, *, swap: bool = True, fold: bool = False) -> str:
+    """The A/B form. fold=True (pair pages) puts it in a 'Change pair' disclosure, closed by default, so the
+    comparison itself starts right under the title."""
     m = site.model
 
     def sel(name: str, label: str, cur) -> str:
@@ -165,7 +172,7 @@ def picker(site: Site, a=None, b=None, *, swap: bool = True) -> str:
 
     swap = (f'<a class="btn cmp-swap" href="{compare_url(b, a)}">Swap<span class="sr-only"> A and B</span>'
             f' <span aria-hidden="true">⇄</span></a>') if swap and a is not None and b is not None else ""
-    return f"""<form class="cmp-picker card" method="get" autocomplete="off" action="@/compare/" data-compare-base="@/compare/" aria-label="Choose two candidates">
+    form = f"""<form class="cmp-picker{"" if fold else " card"}" method="get" autocomplete="off" action="@/compare/" data-compare-base="@/compare/" aria-label="Choose two candidates">
 <div class="cmp-fields">
 {sel("a", "Candidate A", a)}
 {sel("b", "Candidate B", b)}
@@ -174,9 +181,22 @@ def picker(site: Site, a=None, b=None, *, swap: bool = True) -> str:
 <p id="cmp-hint" class="small muted cmp-hint">Choose A and B, then press Compare (or Enter). Every pair has its own address, <code>compare/&lt;a&gt;-vs-&lt;b&gt;/</code>, so a comparison can be bookmarked and shared.</p>
 <p class="cmp-status small" role="status" aria-live="polite" data-cmp-status></p>
 </form>"""
+    if not fold:
+        return form
+    return (f'<details class="cmp-change card"><summary><span class="cmp-change-t">Change pair</span> '
+            f'<span class="muted small">pick another A or B, or swap them</span></summary>{form}</details>')
 
 
 # ---------------------------------------------------------------- index page
+
+def _caveat_fold() -> str:
+    """The shared caveats as a one-line disclosure: the full callout lives on Home and Methodology."""
+    cv = fragments.CAVEATS
+    items = "".join(f"<li><strong>{esc(t)}.</strong> {esc(d)}</li>" for t, d in cv)
+    titles = " · ".join(esc(t) for t, _d in cv)
+    return (f'<details class="caveat cmp-caveat"><summary><strong>Read with care:</strong> {titles}</summary>'
+            f'<ul>{items}</ul><p><a href="@/methodology/#caveats">Methodology and caveats</a>.</p></details>')
+
 
 def build_index(site: Site) -> None:
     m = site.model
@@ -193,18 +213,19 @@ def build_index(site: Site) -> None:
                         for b in cs if b.slug != a.slug)
         groups.append(f'<section class="cmp-group" aria-labelledby="g-{esc(a.slug)}">'
                       f'<h3 id="g-{esc(a.slug)}"><span class="cmp-dot" style="--side:{cat(a.index)}" aria-hidden="true"></span>'
-                      f'{esc(a.label)} {prompt_badge(a.prompt)}</h3><ul>{links}</ul></section>')
+                      f'{esc(a.label)}{_title_badge(a)}</h3><ul>{links}</ul></section>')
     n = len(cs)
     body = f"""<h1>Compare two candidates</h1>
 <p class="lede">Pick any two of the {n} candidates to see them side by side: the rank every judge gave them, their
 phase-1 review scores, the judges' verbatim justifications, the special elements the judges noted for each (strengths and problems), and screenshots.
 The selection lives in the URL.</p>
 {picker(site, cs[0] if cs else None, cs[1] if len(cs) > 1 else None, swap=False)}
-{caveats_html(compact=True)}
+{_caveat_fold()}
 <section aria-labelledby="sug-h">
 <h2 id="sug-h">Suggested comparisons</h2>
 <p class="small muted">Computed from the data at build time: pairs tied on mean rank, builds of the same model from
-different prompts, and the pair whose per-judge rank differences vary the most.</p>
+different prompts, and the pair whose per-judge rank differences vary the most. Mean ranks and rank differences
+below are {DERIVED} from the judges' rankings (mean rank = arithmetic mean of a candidate's judge ranks).</p>
 <ul class="cmp-sugs">{cards}</ul>
 </section>
 <section aria-labelledby="all-h">
@@ -232,17 +253,17 @@ def _card(site: Site, side: str, c) -> str:
         '<div class="cmp-thumb cmp-thumb-none" aria-hidden="true"><span>No screenshot</span></div>'
     if m.standing().get(c.slug):
         rank = (f'<dl class="cmp-stats"><div><dt>Standing</dt><dd>{standing_html(m, c)}</dd></div>'
-                f'<div><dt>Mean rank {DERIVED}</dt><dd>{esc(fmt_mean(m.mean_rank(c.slug)))}</dd></div></dl>')
+                f'<div><dt>Mean rank</dt><dd>{esc(fmt_mean(m.mean_rank(c.slug)))}</dd></div></dl>')
     else:
         rank = f'<p class="small muted">{standing_html(m, c)}</p>'
     return f"""<article class="cmp-card">
 <p class="cmp-side-h">{_tag(side, c)}<span class="sr-only">Candidate {side}:</span></p>
 {thumb}
-<h3 class="cmp-name"><a href="{cand_url(c)}">{esc(c.label)}</a> {prompt_badge(c.prompt)}</h3>
+<h3 class="cmp-name"><a href="{cand_url(c)}">{esc(c.label)}</a>{_title_badge(c)}</h3>
 <p class="small muted cmp-sub">{esc(c.vendor)} · {esc(c.product)}</p>
 {rank}
-<p class="cmp-btns"><a class="btn" href="{play_url(c)}">Play<span class="sr-only"> {esc(c.label)}</span></a>
-<a class="btn" href="{cand_url(c)}">Candidate page<span class="sr-only">: {esc(c.label)}</span></a></p>
+<p class="cmp-btns"><a class="btn btn-play-sec" href="{play_url(c)}"><span class="play-icon" aria-hidden="true"></span>Play<span class="sr-only"> {esc(c.label)}</span></a>
+<a class="btn" href="{cand_url(c)}">Details<span class="sr-only"> on {esc(c.label)}</span></a></p>
 </article>"""
 
 
@@ -593,9 +614,9 @@ def build_pair(site: Site, a, b) -> None:
     toc = "".join(f'<li><a href="#{sid}">{esc(t)}</a></li>' for sid, t, _ in sections)
     secs = "\n".join(f'<section id="{sid}" class="cmp-sec" aria-labelledby="{sid}-h"><h2 id="{sid}-h">{esc(t)}</h2>\n{h}\n</section>'
                      for sid, t, h in sections)
-    body = f"""<h1 class="cmp-h1"><span class="cmp-h1-k">Compare</span> <span class="cmp-h1-side">{_tag("A", a)} <span class="cmp-h1-n">{esc(a.label)}</span></span> <span class="cmp-h1-side"><span class="muted cmp-vs">vs</span> {_tag("B", b)} <span class="cmp-h1-n">{esc(b.label)}</span></span></h1>
-{picker(site, a, b)}
-<nav class="cmp-toc" aria-label="On this page"><ol>{toc}</ol></nav>
+    body = f"""<h1 class="cmp-h1"><span class="cmp-h1-k">Compare</span> <span class="cmp-h1-side">{_tag("A", a)}\u00a0<span class="cmp-h1-n">{esc(a.label)}</span>\u00a0<span class="muted cmp-vs">vs</span></span> <span class="cmp-h1-side">{_tag("B", b)}\u00a0<span class="cmp-h1-n">{esc(b.label)}</span></span></h1>
+{picker(site, a, b, fold=True)}
+<nav class="cmp-toc" aria-label="On this page"><p class="cmp-toc-h">On this page</p><ol>{toc}</ol></nav>
 {secs}"""
     site.page(f"compare/{a.slug}-vs-{b.slug}/index.html", f"{a.label} vs {b.label}", body, section="compare",
               crumbs=[("Compare", "compare/"), (f"{a.label} vs {b.label}", f"compare/{a.slug}-vs-{b.slug}/")],

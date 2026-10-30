@@ -84,6 +84,12 @@ def _how_mean(site: Site, c) -> str:
     return f"arithmetic mean of the {n} judge rank{'s' if n != 1 else ''} this candidate received"
 
 
+def _title_badge(c) -> str:
+    """Prompt badge after a candidate's name in a title, unless the label already ends with the prompt
+    ('Opus 5.5 · v1' needs no extra [v1])."""
+    return "" if c.label.rstrip().endswith(c.prompt) else " " + prompt_badge(c.prompt)
+
+
 def _score_list(site: Site, c, cls: str = "scores") -> str:
     items = []
     for tid, _folder, label in site.model.review_types:
@@ -164,13 +170,13 @@ def _card(site: Site, c) -> str:
     else:
         thumb = '<div class="cand-thumb placeholder" aria-hidden="true"><span>No screenshot</span></div>'
     st = m.standing().get(c.slug)
-    rank_line = (f'<p class="cand-rank"><span class="big">{_mean_html(site, c)}</span> mean rank {DERIVED}'
+    rank_line = (f'<p class="cand-rank"><span class="big">{_mean_html(site, c)}</span> mean rank'
                  f'<br><span class="muted small">standing {standing_html(m, c)}</span></p>') if st else \
         '<p class="cand-rank muted">not ranked by any judge</p>'
     return f"""<article class="card cand-card">
 {thumb}
 <div class="cand-card-body">
-<h2 class="cand-title"><span class="cand-key" style="--key:{cat(c.index)}" aria-hidden="true"></span><a href="{cand_url(c)}">{esc(c.label)}</a> {prompt_badge(c.prompt)}</h2>
+<h2 class="cand-title"><span class="cand-key" style="--key:{cat(c.index)}" aria-hidden="true"></span><a href="{cand_url(c)}">{esc(c.label)}</a>{_title_badge(c)}</h2>
 <p class="muted small cand-sub">{esc(c.vendor)} · {esc(c.product)}</p>
 {rank_line}
 <p class="small muted scores-head">Phase-1 overall scores</p>
@@ -189,7 +195,7 @@ def build_index(site: Site) -> None:
 <p class="lede">{len(m.candidates)} standalone WebXR Mandelbrot pages, each built by an AI coding assistant from one of
 the task prompts. They are listed by mean rank across the {judges} blind judges. Every card links to a page with
 the product, its reviews, every judge's verbatim justification, screenshots and facts.</p>
-<p class="note small"><strong>Mean rank</strong> {DERIVED} is the arithmetic mean of a candidate's ranks over the judges
+<p class="note small"><strong>Mean rank</strong> {DERIVED} (on every card below) is the arithmetic mean of a candidate's ranks over the judges
 that ranked it. Standing = 1 + the number of candidates with a strictly lower mean rank, among those ranked by
 every judge (a competition rank: ties share a place, e.g. 1, 1, 3; shown as “(tie)”). Phase-1 overall scores are the 1–10 scores the blind reviewers wrote, one per review type.
 <a href="@/rankings/">Full rankings</a> · <a href="@/methodology/#caveats">caveats</a>.</p>
@@ -338,15 +344,15 @@ Native dialogs block the page until dismissed. The copy under <a href="{play_url
 def _qr(site: Site, c) -> str:
     url = site.abs_url(f"play/{c.slug}/")
     svg = qr.svg(url, title=f"QR code for {url}")
+    # break the URL only after a '/', never inside a slug
+    url_html = "/<wbr>".join(esc(part) for part in url.split("/"))
     return f"""<div class="qr-block">
 <div class="qr-tile">{svg}</div>
-<div class="qr-text">
-<p>Scan to open the product on a phone or headset browser. The code encodes the product's absolute URL:</p>
-<p class="qr-url"><code>{esc(url)}</code></p>
-<p class="small muted">WebXR sessions need HTTPS and a browser with WebXR support (for example the Meta Quest
+<p class="qr-intro">Scan to open the product on a phone or headset browser. The code encodes the product's absolute URL:</p>
+<p class="qr-url"><code>{url_html}</code></p>
+<p class="small muted qr-note">WebXR sessions need HTTPS and a browser with WebXR support (for example the Meta Quest
 Browser or Chrome on Android). No headset session was entered during the experiment; see the
 <a href="@/methodology/#caveats">caveats</a>.</p>
-</div>
 </div>"""
 
 
@@ -397,6 +403,30 @@ def _overall_html(site: Site, r) -> str:
     return _line_html(site, r.files.get("REVIEW.md", r.dir), r.overall_line)
 
 
+_BARE_OVERALL = re.compile(r"\s*overall(?: score)?\s*:?\s*([\d.]+)\s*(?:/\s*10)?\s*", re.I)
+
+
+def _overall_is_bare(r) -> bool:
+    """True when the review's overall-score line says nothing beyond the score itself ('**Overall score: 8 / 10**'),
+    so the large figure already shows all of it; any other wording (a reason, a rounding note) is quoted."""
+    plain = re.sub(r"[#*_`|]", " ", r.overall_line)
+    mt = _BARE_OVERALL.fullmatch(plain)
+    return bool(mt) and float(mt.group(1)) == r.overall
+
+
+def _overall_block(site: Site, r, src: str, line: int | None) -> str:
+    """The large overall score, sourced to its line in REVIEW.md. The line is quoted verbatim only when it says
+    more than the number (otherwise the quote would just repeat the figure next to it)."""
+    ev = _ev(site, src, "REVIEW.md" + (f" line {line}" if line else ""), line)
+    num = (f'<p class="overall-num"><span class="big">{esc(fmt_score(r.overall))}</span><span class="muted"> / 10</span> '
+           f'<span class="muted small">overall</span></p>')
+    if _overall_is_bare(r):
+        return (f'<div class="overall overall-bare">{num}'
+                f'<p class="small muted overall-src">The reviewer’s overall-score line — {ev}</p></div>')
+    return (f'<div class="overall">{num}<blockquote class="quote overall-line"><p>{_overall_html(site, r)}</p>'
+            f'<cite>Overall-score line, verbatim — {ev}</cite></blockquote></div>')
+
+
 def _criteria(site: Site, c) -> str:
     m = site.model
     out = []
@@ -414,11 +444,7 @@ def _criteria(site: Site, c) -> str:
         line = _find_line(r.md, r.overall_line)
         out.append(f"""<section class="review-block" aria-labelledby="rv-{esc(tid)}">
 <h3 id="rv-{esc(tid)}">{esc(label)} review <span class="muted small">reviewed blind as <code>{esc(r.blind_id)}</code></span></h3>
-<div class="overall">
-<p class="overall-num"><span class="big">{esc(fmt_score(r.overall))}</span><span class="muted"> / 10</span> <span class="muted small">overall</span></p>
-<blockquote class="quote overall-line"><p>{_overall_html(site, r)}</p>
-<cite>Overall-score line, verbatim — {_ev(site, src, "REVIEW.md" + (f" line {line}" if line else ""), line)}</cite></blockquote>
-</div>
+{_overall_block(site, r, src, line)}
 <figure class="chart-fig">{_bar_chart(r, c, True)}{_bar_chart(r, c, False)}<figcaption class="small muted">Criterion scores (0–10 axis). Same data, with the reviewer's reasons, in the table below.</figcaption></figure>
 <div class="table-wrap"><table class="crit-table">
 <caption>{esc(label)} review criteria with the reviewer's one-line reasons, verbatim.</caption>

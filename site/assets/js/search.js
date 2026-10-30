@@ -189,7 +189,8 @@
       ranked.length = 0;
       ranked.push(...unique);
       const marks = new Set(res.flatMap((r) => r.terms));
-      state = { my, phrases, marks, pending: phrases.length ? ranked : [], accepted: phrases.length ? [] : ranked, shown: 0 };
+      state = { my, phrases, marks, pending: phrases.length ? ranked : [], accepted: [], byDoc: new Map(), shown: 0 };
+      if (!phrases.length) for (const r of ranked) accept(state, r);
       await showMore();
     } catch (err) {
       if (my !== gen) return;
@@ -198,13 +199,24 @@
     }
   }
 
+  // One result per document: further matching passages of the same document (a long message split into
+  // passages) are counted on the first, best-scoring one instead of being listed again.
+  function accept(s, r) {
+    const first = s.byDoc.get(r.d);
+    if (first) { first.more = (first.more || 0) + 1; if (first.moreEl) { first.moreEl.textContent = moreText(first.more); first.moreEl.hidden = false; } return; }
+    r.more = 0;
+    s.byDoc.set(r.d, r);
+    s.accepted.push(r);
+  }
+  const moreText = (n) => `+${n} more matching passage${n === 1 ? "" : "s"} in this document`;
+
   async function verifyMore(s) {
     for (let loaded = 0; s.pending.length && s.accepted.length < s.shown + PAGE && loaded < VERIFY_SHARDS; loaded++) {
       const shard = shardOf(s.pending[0].id), rows = await fetchJSON(`d-${shard}.json`);
       if (s.my !== gen) return;
       const batch = s.pending.filter((r) => shardOf(r.id) === shard);
       s.pending = s.pending.filter((r) => shardOf(r.id) !== shard);
-      for (const r of batch) if (hasPhrase(rows[r.id % meta.docshard_size][4], s.phrases)) s.accepted.push(r);
+      for (const r of batch) if (hasPhrase(rows[r.id % meta.docshard_size][4], s.phrases)) accept(s, r);
       const tail = s.accepted.splice(s.shown).sort((a, b) => b.score - a.score || a.id - b.id);
       s.accepted.push(...tail);
     }
@@ -250,18 +262,27 @@
   // (or once the reader has scrolled past them), so a phone only fetches the passages it shows.
   function result(r, s, eager) {
     const [url, title, kind, context] = docs[r.d];
-    const li = el("li", "search-result"), head = el("p", "search-result-head"), a = el("a", "search-result-title", title);
+    // keep a dash with the word before it (NBSP), so a wrapped title never starts a line with "—"
+    const li = el("li", "search-result"), head = el("p", "search-result-head"), a = el("a", "search-result-title", title.replace(/ ([—–]) /g, "\u00a0$1 "));
     a.href = root + url.replace(/^\/+/, "");
     head.append(a);
     const snip = el("p", "search-snippet is-loading", "Loading excerpt…");
     snip.dataset.id = String(r.id);
     const ctx = el("p", "search-context");
     ctx.append(el("span", "search-badge", kind));
-    // keep timestamps on one line (ISO, or the "29 Oct 2026, 14:22 UTC" form transcripts use)
-    context.split(/(\d{4}-\d{2}-\d{2}T[\d:.]+Z?|\d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}(?: UTC)?)/).forEach((part, i) => {
-      if (part) ctx.append(i % 2 ? el("span", "search-time", part) : part);
+    // one span per " · " item, so a separator wraps with the item it introduces (drawn by CSS); timestamps
+    // stay on one line (ISO, or the "29 Oct 2026, 14:22 UTC" form transcripts use)
+    context.split(" · ").forEach((item, k) => {
+      const it = el("span", "search-ci");
+      item.split(/(\d{4}-\d{2}-\d{2}T[\d:.]+Z?|\d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}(?: UTC)?)/).forEach((part, i) => {
+        if (part) it.append(i % 2 ? el("span", "search-time", part) : part);
+      });
+      ctx.append(k ? " " : "", it);
     });
     li.append(head, ctx, snip);
+    r.moreEl = el("p", "search-also", r.more ? moreText(r.more) : "");
+    r.moreEl.hidden = !r.more;
+    li.append(r.moreEl);
     if (r.also && r.also.length) {
       const also = el("p", "search-also", "Same passage also in: ");
       r.also.forEach((d, i) => {

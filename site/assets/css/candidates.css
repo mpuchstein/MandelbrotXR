@@ -47,6 +47,7 @@ dl.scores .of { font-weight: 400; color: var(--muted); font-size: var(--text-xs)
 .btn-play { font-size: var(--text-base); padding-inline: var(--space-4); min-height: 48px; }
 .play-icon { width: 0; height: 0; border-style: solid; border-width: 6px 0 6px 10px; border-color: transparent transparent transparent currentColor; }
 .play-note { margin: 0; }
+@media (max-width: 30rem) { .play-row .btn { flex: 1 1 100%; } }   /* stacked buttons share one full width */
 
 /* ---- layout + table of contents */
 .cand-layout { display: block; }
@@ -78,11 +79,20 @@ dl.scores .of { font-weight: 400; color: var(--muted); font-size: var(--text-xs)
 .q-line p { margin: 0; max-width: var(--measure); }
 
 /* ---- QR: the SVG paints its own white quiet zone and black modules (scannable in both themes) */
-.qr-block { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-start; }
-.qr-tile { border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; width: min(220px, 100%); flex: none; line-height: 0; }
+/* desktop: the code beside the text; phones: a small code beside the intro, the URL and note full width below */
+.qr-block { display: grid; grid-template-columns: 220px minmax(0, 1fr); grid-auto-rows: min-content; gap: 0 var(--space-4); align-items: start; }
+.qr-tile { grid-row: 1 / span 4; border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; width: 100%; line-height: 0; }
 .qr-tile svg { width: 100%; height: auto; display: block; image-rendering: pixelated; }
-.qr-text { flex: 1 1 256px; min-width: 0; }
-.qr-url code { overflow-wrap: anywhere; word-break: break-all; font-size: var(--text-sm); }
+.qr-block > p { grid-column: 2; min-width: 0; }
+/* the URL as one block code element that breaks only after a '/' (<wbr>), never mid-slug */
+.qr-url code { display: inline-block; max-width: 100%; white-space: normal; overflow-wrap: normal; word-break: normal; font-size: var(--text-sm); padding: var(--space-1) var(--space-2); }
+@media (max-width: 40rem) {
+  .qr-block { grid-template-columns: 112px minmax(0, 1fr); gap: 0 var(--space-3); }
+  .qr-tile { grid-row: 1; }
+  .qr-intro { margin: 0; }
+  .qr-block > .qr-url, .qr-block > .qr-note { grid-column: 1 / -1; }
+  .qr-url { margin-top: var(--space-3); }
+}
 
 /* ---- at a glance */
 .glance { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 272px), 1fr)); align-items: start; }
@@ -99,6 +109,8 @@ dl.scores .of { font-weight: 400; color: var(--muted); font-size: var(--text-xs)
 .overall-num { margin: 0; white-space: nowrap; }
 .overall-line { flex: 1 1 288px; margin: 0; max-width: none; }
 .overall-line p { margin: 0; }
+.overall-bare { align-items: baseline; }
+.overall-src { margin: 0; }
 .chart-fig { margin: 0 0 var(--space-3); max-width: 720px; }
 .chart-fig .crit-chart { display: block; width: 100%; height: auto; }
 .chart-fig .crit-narrow { max-width: 416px; }

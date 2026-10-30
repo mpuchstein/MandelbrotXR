@@ -46,7 +46,8 @@ def _spread_text(lo: int, hi: int, sd: float) -> str:
     return f"{rng} · σ {sd:.2f}"
 
 
-GLYPH_W, GLYPH_H, GLYPH_PAD = 96, 18, 6   # rankings.js mirrors these (gx)
+GLYPH_W, GLYPH_H, GLYPH_PAD = 136, 30, 6   # rankings.js mirrors GLYPH_W / GLYPH_PAD (gx)
+DOT_R, DOT_STEP = 2.6, 6.0                  # equal ranks stack DOT_STEP apart (> one dot diameter)
 
 
 def _gx(r: float, n: int) -> str:
@@ -55,9 +56,10 @@ def _gx(r: float, n: int) -> str:
 
 
 def _glyph(ranks: dict[str, int], mean: float | None, n: int) -> str:
-    """Dot-range glyph on a fixed 1..n scale: faint end ticks at rank 1 and rank n, a line from the best
-    to the worst rank, one dot per judge (judges that gave the same rank are stacked vertically, so
-    every dot stays visible) and a taller, darker tick at the mean.
+    """Dot-range glyph on a fixed 1..n scale (labelled 1 and n in the column header): faint end ticks
+    at rank 1 and rank n, a line from the best to the worst rank, a full-height light tick at the mean
+    drawn behind the dots, and one dot per judge on top (judges that gave the same rank are stacked
+    vertically, more than a dot diameter apart, so every dot can be counted).
     Purely decorative (aria-hidden); the text next to it carries the numbers."""
     if not ranks:
         return ""
@@ -68,16 +70,31 @@ def _glyph(ranks: dict[str, int], mean: float | None, n: int) -> str:
     for jid, r in ranks.items():
         k = seen.get(r, 0)
         seen[r] = k + 1
-        dy = 0.0 if k == 0 else (-1) ** k * 3.5 * ((k + 1) // 2)
-        dy = max(-mid + 3, min(mid - 3, dy))
-        dots.append(f'<circle class="d" data-col="j-{esc(jid)}" data-r="{r}" cx="{_gx(r, n)}" cy="{mid + dy:.1f}" r="2.6"/>')
+        dy = 0.0 if k == 0 else (-1) ** k * DOT_STEP * ((k + 1) // 2)
+        dy = max(-mid + DOT_R + 0.5, min(mid - DOT_R - 0.5, dy))
+        dots.append(f'<circle class="d" data-col="j-{esc(jid)}" data-r="{r}" cx="{_gx(r, n)}" cy="{mid + dy:.1f}" r="{DOT_R}"/>')
     ends = "".join(f'<line class="end" x1="{_gx(r, n)}" x2="{_gx(r, n)}" y1="{mid - 4:.1f}" y2="{mid + 4:.1f}"/>' for r in (1, n))
     tick = (f'<line class="mu" x1="{_gx(mean, n)}" x2="{_gx(mean, n)}" y1="0.5" y2="{GLYPH_H - 0.5:.1f}"/>'
             if mean is not None else "")
     return (f'<svg class="rk-glyph" viewBox="0 0 {GLYPH_W} {GLYPH_H}" width="{GLYPH_W}" height="{GLYPH_H}" aria-hidden="true" '
             f'focusable="false" data-n="{n}">'
             f'<line class="axis" x1="{_gx(1, n)}" x2="{_gx(n, n)}" y1="{mid:.1f}" y2="{mid:.1f}"/>{ends}'
-            f'<line class="rng" x1="{_gx(lo, n)}" x2="{_gx(hi, n)}" y1="{mid:.1f}" y2="{mid:.1f}"/>{"".join(dots)}{tick}</svg>')
+            f'<line class="rng" x1="{_gx(lo, n)}" x2="{_gx(hi, n)}" y1="{mid:.1f}" y2="{mid:.1f}"/>{tick}{"".join(dots)}</svg>')
+
+
+def _glyph_scale(n: int) -> str:
+    """'1 … n' labels for the Spread column header, at exactly the glyph's end-tick positions."""
+    return (f'<svg class="rk-glyph rk-scale" viewBox="0 0 {GLYPH_W} 12" width="{GLYPH_W}" height="12" aria-hidden="true" focusable="false">'
+            f'<text x="{_gx(1, n)}" y="10" text-anchor="middle">1</text>'
+            f'<text x="{GLYPH_W / 2:.1f}" y="10" text-anchor="middle">rank</text>'
+            f'<text x="{_gx(n, n)}" y="10" text-anchor="middle">{n}</text></svg>')
+
+
+def _score(x: float, pad: bool) -> str:
+    """Phase-1 score as everywhere on the site ('8', '7.5'); when the column mixes precisions, whole
+    numbers get an invisible '.0' so the digits line up (the visible and accessible text stays '8')."""
+    t = fmt_score(x)
+    return t + ('<span class="rk-pad" aria-hidden="true">.0</span>' if pad and "." not in t else "")
 
 
 # ---------------------------------------------------------------- the matrix
@@ -88,6 +105,7 @@ def _matrix(site: Site) -> tuple[str, str]:
     cands = m.ordered()
     standing = m.standing()
     nmax = max([len(j.rows) for j in judges] or [1])
+    pad_scores = any(fmt_score(r.overall) != f"{r.overall:.0f}" for r in m.reviews)  # mixed precision?
 
     def th(key: str, label: str, *, typ: str = "num", first: str = "asc", meta: str = "", cls: str = "",
            extra: str = "", sort: str | None = None, plain: str = "") -> str:
@@ -99,18 +117,22 @@ def _matrix(site: Site) -> tuple[str, str]:
 
     # one header row (the column groups are named in each header: "judge" / "review"), so the
     # header cells line up one-to-one with the body cells and the row can stick on its own
-    head = [th("standing", '<span class="sr-only">Standing</span><span aria-hidden="true">#</span>', plain="Standing", cls="num rk-stick rk-stick-1", sort="ascending"),
-            th("name", "Candidate", typ="text", cls="rk-stick rk-stick-2")]
+    blank = '<span class="rk-meta" aria-hidden="true">&nbsp;</span>'   # keeps every title on one baseline
+    head = [th("standing", '<span class="sr-only">Standing</span><span aria-hidden="true">#</span>', plain="# (standing)",
+               cls="num rk-stick rk-stick-1", sort="ascending", meta=blank),
+            th("name", "Candidate", typ="text", cls="rk-stick rk-stick-2", meta=blank)]
+    # the derived headline figures sit right after the candidate, so they are on screen at 390 px too
+    head.append(th("mean", plain="Mean rank", label='<span class="rk-l-all">Mean rank</span><span class="rk-l-sub" hidden>Mean over shown judges</span>',
+                   meta='<span class="rk-meta"><span class="derived">derived</span></span>', cls="num rk-derived"))
+    head.append(th("spread", plain="Spread", label='<span class="rk-l-all">Spread</span><span class="rk-l-sub" hidden>Spread over shown judges</span>',
+                   meta=f'<span class="rk-meta">min–max · σ <span class="derived">derived</span></span>{_glyph_scale(nmax)}',
+                   cls="rk-derived rk-spread-h"))
     for k, j in enumerate(judges):
         mat = _material(j)
         meta = (f'<span class="rk-meta"><span class="rk-mat rk-mat-{mat}" title="{esc(j.material or mat)}">{mat}</span> '
                 f'<a href="{judge_url(j)}" aria-label="{esc(j.label)} judge page">judge</a></span>')
         head.append(th(f"j-{j.id}", f'{esc(j.label)}<span class="sr-only"> judge rank</span>', plain=f"{j.label} judge rank",
                        meta=meta, cls="num rk-judge" + (" rk-first" if k == 0 else ""), extra=f' data-material="{mat}"'))
-    head.append(th("mean", plain="Mean rank", label='<span class="rk-l-all">Mean rank</span><span class="rk-l-sub" hidden>Mean over shown judges</span>',
-                   meta='<span class="rk-meta"><span class="derived">derived</span></span>', cls="num rk-derived rk-first"))
-    head.append(th("spread", plain="Spread", label='<span class="rk-l-all">Spread</span><span class="rk-l-sub" hidden>Spread over shown judges</span>',
-                   meta='<span class="rk-meta">min–max · σ <span class="derived">derived</span></span>', cls="rk-derived"))
     for k, (tid, _folder, tlabel) in enumerate(rtypes):
         head.append(th(f"r-{tid}", f'{esc(tlabel)}<span class="sr-only"> review score</span>', plain=f"{tlabel} review score",
                        first="desc", meta='<span class="rk-meta">review · 1–10</span>',
@@ -132,13 +154,6 @@ def _matrix(site: Site) -> tuple[str, str]:
                      f'<span class="sr-only"> ({why})</span></td>']
         cells.append(f'<th scope="row" class="rk-stick rk-stick-2" data-col="name" data-sort="{esc(c.label.casefold())}">'
                      f'<a href="{cand_url(c)}">{esc(c.label).replace(" · ", "&nbsp;· ")}</a></th>')
-        for j in judges:
-            r = ranks.get(j.id)
-            if r is None:
-                cells.append(f'<td class="num muted" data-col="j-{esc(j.id)}" data-sort="" title="not ranked by this judge">–</td>')
-            else:
-                cells.append(f'<td class="num rk-heat" data-col="j-{esc(j.id)}" data-sort="{r}" '
-                             f'style="{_heatvars(heat(r, len(j.rows)))}">{r}</td>')
         if mean is None:
             cells.append('<td class="num muted" data-col="mean" data-sort="">–</td>')
             cells.append('<td class="muted" data-col="spread" data-sort=""><span class="rk-sp">–</span></td>')
@@ -148,20 +163,29 @@ def _matrix(site: Site) -> tuple[str, str]:
             cells.append(f'<td class="num rk-mean" data-col="mean" data-sort="{_num(float(mean))}">'
                          f'<span class="rk-mv">{fmt_mean(mean)}</span>{cov}</td>')
             lo, hi, sd = sp
-            cells.append(f'<td class="rk-spread" data-col="spread" data-sort="{_num(sd)}">'
-                         f'<span class="rk-sp">{esc(_spread_text(lo, hi, sd))}</span>{_glyph(ranks, float(mean), nmax)}</td>')
-        for tid, _folder, tlabel in rtypes:
-            rv = m.review(tid, c.slug)
-            if rv is None:
-                cells.append(f'<td class="num muted" data-col="r-{esc(tid)}" data-sort="" title="no {esc(tlabel)} review">–</td>')
+            cells.append(f'<td class="rk-spread" data-col="spread" data-sort="{_num(sd)}"><span class="rk-spw">'
+                         f'<span class="rk-sp">{esc(_spread_text(lo, hi, sd))}</span>{_glyph(ranks, float(mean), nmax)}</span></td>')
+        for k, j in enumerate(judges):
+            r = ranks.get(j.id)
+            first = " rk-first" if k == 0 else ""
+            if r is None:
+                cells.append(f'<td class="num muted{first}" data-col="j-{esc(j.id)}" data-sort="" title="not ranked by this judge">–</td>')
             else:
-                cells.append(f'<td class="num rk-heat" data-col="r-{esc(tid)}" data-sort="{_num(rv.overall)}" '
+                cells.append(f'<td class="num rk-heat{first}" data-col="j-{esc(j.id)}" data-sort="{r}" '
+                             f'style="{_heatvars(heat(r, len(j.rows)))}">{r}</td>')
+        for k, (tid, _folder, tlabel) in enumerate(rtypes):
+            rv = m.review(tid, c.slug)
+            first = " rk-first" if k == 0 else ""
+            if rv is None:
+                cells.append(f'<td class="num muted{first}" data-col="r-{esc(tid)}" data-sort="" title="no {esc(tlabel)} review">–</td>')
+            else:
+                cells.append(f'<td class="num rk-heat{first}" data-col="r-{esc(tid)}" data-sort="{_num(rv.overall)}" '
                              f'style="{_heatvars(score_heat(rv.overall))}"><a href="{review_url(rv)}" '
                              f'aria-label="{esc(tlabel)} review of {esc(c.label)}: {fmt_score(rv.overall)} out of 10">'
-                             f'{fmt_score(rv.overall)}</a></td>')
+                             f'{_score(rv.overall, pad_scores)}</a></td>')
         body.append(f'<tr data-slug="{esc(c.slug)}" data-prompt="{esc(c.prompt)}" data-order="{pos}">{"".join(cells)}</tr>')
 
-    caption = "Judge ranks (1 = best), derived mean rank and spread, and phase-1 overall scores per candidate."
+    caption = "Derived mean rank and spread, judge ranks (1 = best) and phase-1 overall scores per candidate."
     # .rk-break lets only the matrix grow past the text column on wide screens; .rk-scroller carries the
     # right-edge fade (rankings.js sets .more-right while columns are hidden to the right)
     table = (f'<p class="rk-scroll-hint small muted" id="rank-scroll-hint">More columns: scroll sideways '
@@ -375,6 +399,7 @@ def build(site: Site) -> None:
                    + "</li>" for j in judges if "RANKING.md" in j.files)
 
     n_j, n_c, n_t = len(judges), len(ranked), len(rtypes)
+    nmax = max([len(j.rows) for j in judges] or [1])
     mats = sorted({_material(j) for j in judges})
     prompts = sorted({c.prompt for c in m.candidates}, key=lambda p: (len(p), p))
     prompts_li = (f'<li><strong>{esc(" and ".join([", ".join(prompts[:-1]), prompts[-1]]))}</strong> are different prompts; '
@@ -396,7 +421,7 @@ def build(site: Site) -> None:
 <ul>
 <li><strong>Rank 1 = best.</strong> Each judge column is one judge’s blind ranking of all candidates it saw. A dash (–) means that judge did not rank that candidate.</li>
 <li><strong>Mean rank</strong> <span class="derived">derived</span> is the arithmetic mean of a candidate’s ranks over the judges that ranked it (over the judges currently shown, when you filter by material). Equal means are ties and are shown as ties: “=1” means shared first place. The standing (#) is only given to candidates ranked by every judge; a candidate that some judges did not rank shows how many did (e.g. “{max(n_j - 1, 0)}/{n_j} judges”) and is listed after the others.</li>
-<li><strong>Spread</strong> <span class="derived">derived</span> gives the best and worst rank a candidate received (min–max) and σ, the population standard deviation of its ranks across judges: σ = √(Σ(r − mean)² / n). A large σ marks a controversial candidate. In the glyph, the faint end ticks mark rank 1 (left) and the last rank (right), each dot is one judge (equal ranks stack vertically) and the tall tick is the mean.</li>
+<li><strong>Spread</strong> <span class="derived">derived</span> gives the best and worst rank a candidate received (min–max) and σ, the population standard deviation of its ranks across judges: σ = √(Σ(r − mean)² / n). A large σ marks a controversial candidate. In the glyph, the faint end ticks mark rank 1 (left) and rank {nmax} (right), as labelled in the column header; each solid dot is one judge (equal ranks stack vertically) and the light full-height tick behind the dots is the mean.</li>
 <li><strong>Phase-1 scores</strong> are the 1–10 overall scores from separate blind reviews (one reviewer per review type and candidate), not from the judges. Click a score to read the review.</li>
 <li><strong>Judge material:</strong> {", ".join(f"“{x}”" for x in mats)} — static judges read code and/or transcripts only; browser judges used the product hands-on in desktop Chrome.</li>
 {prompts_li}

@@ -3,10 +3,10 @@
 .meth-head .lede { margin-bottom: var(--space-4); }
 
 /* in-page table of contents */
-.meth-toc { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: var(--space-3); margin: 0 0 var(--space-5); }
+.meth-toc { max-width: calc(var(--measure) + 2 * var(--space-4)); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: var(--space-3); margin: 0 0 var(--space-5); }
 .meth-toc .toc-h { font-size: var(--text-sm); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 var(--space-2); font-weight: 600; }
 /* column-major (reads down each column), balanced; numbers right-aligned in a fixed slot so labels line up */
-.meth-toc ol { margin: 0; padding: 0; list-style: none; columns: 4 11rem; column-gap: var(--space-4); counter-reset: toc; }
+.meth-toc ol { margin: 0; padding: 0; list-style: none; columns: 3 11rem; column-gap: var(--space-4); counter-reset: toc; }
 .meth-toc li { counter-increment: toc; max-width: none; break-inside: avoid; padding: 2px 0; }
 .meth-toc li::before { content: counter(toc) "."; display: inline-block; width: 1.8em; margin-right: var(--space-1); text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: var(--text-sm); }
 .meth-toc a { text-decoration: none; }
@@ -20,7 +20,8 @@
 
 /* caveats */
 /* the caveat panel: reading-measure wide, neutral frame; the accent marks only the lead sentence */
-.cav-box { max-width: calc(var(--measure) + 2 * var(--space-4)); padding: var(--space-3) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius); }
+/* no outer card: the section heading groups the caveats; one accent rule on the lead, one grey rule on quotes */
+.cav-box { max-width: calc(var(--measure) + 2 * var(--space-4)); }
 .cav-lead { border-left: 4px solid var(--accent); padding-left: var(--space-3); font-size: var(--text-base); }
 .cav-list { margin: var(--space-3) 0 0; padding-left: 1.4em; }
 .cav-list > li { max-width: var(--measure); margin-bottom: var(--space-4); }
@@ -31,6 +32,7 @@
 .cav details.fold { background: none; border: 0; padding: 0; }
 .cav details.fold > summary { font-size: var(--text-sm); }
 .cav .quote { background: none; margin-top: var(--space-2); padding-block: 0; }
+.cav .quote cite .evidence .gh { white-space: nowrap; }
 
 /* plain one-line statement */
 .plain-line { border-left: 4px solid var(--accent); padding: var(--space-2) var(--space-3); background: var(--accent-soft); border-radius: 0 var(--radius) var(--radius) 0; }
@@ -98,10 +100,12 @@
 
 /* small screens: flatten the nesting of the caveat box */
 @media (max-width: 30rem) {
-  .cav-box { padding: var(--space-3) var(--space-3) var(--space-3) var(--space-3); }
   .cav-list { padding-left: 1.1em; }
   .cav-claim { font-size: var(--text-base); }
-  .cav .quote { padding: 0 0 0 var(--space-2); }
+  .cav .quote { padding: 0 0 0 12px; }
+  .cav details.fold { padding: 0; }
+  /* citations: smaller, so "path, line N ↗ GitHub" fits on one line */
+  .cav .quote cite, .cav .quote cite .evidence .gh { font-size: var(--text-xs); }
   .incident { padding: var(--space-2); }
   .incident .quote { padding: var(--space-2); }
 }

@@ -13,6 +13,7 @@ Everything is discovered from the model: judges, review types, letters and candi
 """
 from __future__ import annotations
 
+import math
 import os
 import re
 
@@ -119,6 +120,10 @@ def _num_cols(html_: str) -> str:
         if not num:
             return t
 
+        # a "name | number | reason" table (the rubric): on phones each row stacks as a block (judges.css)
+        if width == 3 and num == {1}:
+            t = t.replace("<table>", '<table class="jr-crit">', 1)
+
         def row(rm: re.Match) -> str:
             k = [-1]
 
@@ -132,8 +137,25 @@ def _num_cols(html_: str) -> str:
 
 
 def _clink(c) -> str:
-    """Short candidate label (tables, lists), linked to the candidate page; Candidate.name only in headings."""
-    return f'<a href="{cand_url(c)}">{esc(c.label)}</a>'
+    """Short candidate label (tables, lists), linked to the candidate page; Candidate.name only in headings.
+    The label is one unit (.jr-cn): it breaks only between the words of the model name, never at its middot."""
+    return f'<a class="jr-cn" href="{cand_url(c)}">{_nbsp_sep(esc(c.label))}</a>'
+
+
+def _nbsp_sep(label_html: str) -> str:
+    """'Gemini 4 Argon · v1' -> 'Gemini 4 Argon&nbsp;·&nbsp;v1' (visual only: same characters shown)."""
+    return label_html.replace(" · ", "\u00a0·\u00a0")
+
+
+def _short_label(c) -> str:
+    """The label without its trailing ' · <prompt>' (for table cells where the prompt badge follows)."""
+    return c.label.removesuffix(f" · {c.prompt}")
+
+
+def _clink_badge(c) -> str:
+    """Candidate link + prompt badge, the prompt shown once (as the badge); the badge never wraps alone."""
+    return (f'<span class="jr-cb"><a class="jr-cn" href="{cand_url(c)}">{esc(_short_label(c))}</a>'
+            f'\u00a0{prompt_badge(c.prompt)}</span>')
 
 
 def _rv(blind_html: str, reveal_html: str) -> str:
@@ -200,10 +222,20 @@ def _mode(j: Judge) -> str:
 
 # ---------------------------------------------------------------- score colours
 
-def _score_vars(score: float, lo: float = 0, hi: float = 10) -> str:
+def _score_vars(score: float) -> str:
     """Inline style for a score cell: fragments.score_heat()'s theme-aware tokens (light and dark ramps live in
-    base.css); the number is always printed in the cell."""
-    return score_heat(score, lo, hi)
+    base.css); the number is always printed in the cell. The 1–10 scale maps one level per integer score
+    (1 → lightest, 10 → strongest; a half score takes the level of its integer part), so all ten legend
+    swatches are distinct steps."""
+    return score_heat(min(10, max(1, math.floor(score))), 1, 10)
+
+
+def _score_html(score: float) -> str:
+    """A score aligned on its decimal point: the fractional part sits in a fixed-width slot (empty for whole
+    numbers), so integers line up in a column. The characters shown are fmt_score()'s, unchanged."""
+    txt = fmt_score(score)
+    whole, dot, frac = txt.partition(".")
+    return f'<span class="jr-dec">{esc(whole)}<span class="jr-frac">{esc(dot + frac)}</span></span>'
 
 
 def _score_legend() -> str:
@@ -228,13 +260,13 @@ def _review_matrix(site: Site, *, caption: str) -> str:
                 cells.append('<td class="num muted">–</td>')
                 continue
             cells.append(f'<td class="num jr-score" style="{_score_vars(r.overall)}"><a href="{review_url(r)}">'
-                         f'<span class="sr-only">{esc(label)} review of {esc(c.label)}: </span>{esc(fmt_score(r.overall))}</a></td>')
+                         f'<span class="sr-only">{esc(label)} review of {esc(c.label)}: </span>{_score_html(r.overall)}</a></td>')
         if not any(m.review(tid, c.slug) for tid, _, _ in types):
             continue
         nn = unblind.get(c.slug, "")
         # on narrow screens the Blind id column is hidden and the id moves under the name (.jr-bid)
-        rows.append(f'<tr><th scope="row">{_clink(c)} {prompt_badge(c.prompt)}'
-                    f'<span class="jr-bid" aria-hidden="true"><code>{esc(nn) or "–"}</code></span></th>'
+        rows.append(f'<tr><th scope="row">{_clink_badge(c)}'
+                    f'<span class="jr-bid" aria-hidden="true"> <code>{esc(nn) or "–"}</code></span></th>'
                     f'<td class="jr-bid-col"><code>{esc(nn) or "–"}</code></td>{"".join(cells)}</tr>')
     # the caption sits outside the scroll container so it wraps at page width; the table points at it
     return (f'<div class="jr-matrix-block">{_score_legend()}'
@@ -301,7 +333,7 @@ def build_judges_index(site: Site) -> None:
     for j in m.judges:
         first = j.rows[0] if j.rows else None
         last = j.rows[-1] if j.rows else None
-        pick = lambda r: (f'{_clink(m.cand(r.slug))} <span class="muted small">(saw {esc(r.letter)})</span>' if r else "–")
+        pick = lambda r: (f'{_clink(m.cand(r.slug))}<span class="jr-saw">saw {esc(r.letter)}</span>' if r else "–")
         material = _md_cell(j.material, JUDGE_README, site) if j.material else "—"
         focus = _md_cell(j.focus, JUDGE_README, site) if j.focus else "—"
         rows.append(f'<tr><th scope="row"><a href="{judge_url(j)}">{esc(j.label)}</a></th>'
@@ -357,17 +389,18 @@ def build_reviews_index(site: Site) -> None:
             n = _line_no(r.md, r.overall_line)
             ev = site.evidence(r.files["REVIEW.md"], "REVIEW.md", anchor=f"#L{n}" if n else "", line=n)
             rows.append(f'<tr><th scope="row"><a href="{review_url(r)}">{_nb_title(r.title)}</a></th>'
-                        f'<td class="jr-l-cand">{_clink(c)} {prompt_badge(c.prompt)}</td>'
-                        f'<td class="num jr-l-score"><span class="jr-l-lbl">Overall </span>{esc(fmt_score(r.overall))}</td>'
+                        f'<td class="jr-l-cand">{_clink_badge(c)}</td>'
+                        f'<td class="num jr-l-score"><span class="jr-l-lbl">Overall </span>{_score_html(r.overall)}</td>'
                         f'<td class="jr-l-src"><code class="jr-line">{esc(r.overall_line)}</code> {ev}</td></tr>')
         parts.append(f"""
 <section aria-labelledby="t-{esc(tid)}">
 <h3 id="t-{esc(tid)}">{esc(label)} reviews <span class="muted jr-count">{len(rs)} · {site.evidence(f"Review/{tfolder}", f"Review/{tfolder}/")}</span></h3>
-<div class="table-wrap" role="region" aria-label="{esc(label)} reviews"><table class="jr-list">
-<caption>Sorted by the blind id the reviewer saw. Overall = first number of the verbatim source line.</caption>
+<div class="table-wrap" role="region" aria-label="{esc(label)} reviews"><table class="jr-list" aria-describedby="cap-{esc(tid)}">
+<caption class="sr-only">{esc(label)} reviews</caption>
 <thead><tr><th scope="col">Review (heading as written)</th><th scope="col">Candidate (revealed)</th>
 <th scope="col" class="num">Overall</th><th scope="col">Source line</th></tr></thead>
 <tbody>{"".join(rows)}</tbody></table></div>
+<p class="jr-cap small muted" id="cap-{esc(tid)}">Sorted by the blind id the reviewer saw. Overall = first number of the verbatim source line.</p>
 </section>""")
     body = f"""
 <header class="jr-head">
@@ -496,14 +529,14 @@ def build_judge(site: Site, j: Judge) -> None:
     a, n = at("## Ranking")
     rrows = []
     for r in j.rows:
-        rrows.append(f'<tr><td class="num jr-rank">{r.rank}</td><td class="jr-cand">{rv_letter(r.letter)}</td>'
-                     f'<td>{prompt_badge(r.prompt)}</td><td class="jr-just">{_md_cell(r.justification, rp, site)}</td></tr>')
+        rrows.append(f'<tr><td class="num jr-rank">{r.rank}</td><td class="jr-cand">{rv_letter(r.letter)}\u00a0{prompt_badge(r.prompt)}</td>'
+                     f'<td class="jr-just">{_md_cell(r.justification, rp, site)}</td></tr>')
     ranking = f"""
 <section aria-labelledby="ranking">
 <h2 id="ranking">Ranking</h2>
 <p class="sec-lede">Best to worst, justifications verbatim. {site.evidence(rp, "RANKING.md", anchor=a, line=n)}</p>
-<div class="table-wrap" role="region" aria-label="Ranking"><table class="jr-ranking">
-<thead><tr><th scope="col" class="num">Rank</th><th scope="col">Candidate</th><th scope="col">Prompt</th><th scope="col">Justification</th></tr></thead>
+<div class="table-wrap jr-ranking-wrap" role="region" aria-label="Ranking"><table class="jr-ranking">
+<thead><tr><th scope="col" class="num">Rank</th><th scope="col">Candidate · prompt</th><th scope="col">Justification</th></tr></thead>
 <tbody>{"".join(rrows)}</tbody></table></div>
 </section>"""
 

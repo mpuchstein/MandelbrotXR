@@ -69,7 +69,7 @@ HEAT_LEVELS = 10
 
 
 def _level_style(t: float) -> str:
-    k = round(min(1.0, max(0.0, t)) * (HEAT_LEVELS - 1))
+    k = int(min(1.0, max(0.0, t)) * (HEAT_LEVELS - 1) + 0.5)  # round half up: distinct levels for 1..10
     return f"background:var(--heat-{k});color:var(--heat-fg-{k})"
 
 
@@ -79,7 +79,7 @@ def heat(rank: float, n: int) -> str:
     return _level_style(1 - (rank - 1) / max(1, n - 1))
 
 
-def score_heat(score: float, lo: float = 0, hi: float = 10) -> str:
+def score_heat(score: float, lo: float = 1, hi: float = 10) -> str:
     """Inline style for a score cell (same scale): higher = more emphasis."""
     return _level_style((score - lo) / (hi - lo))
 

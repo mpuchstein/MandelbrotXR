@@ -234,7 +234,7 @@ def sec_caveats(site: Site, srcs: dict[str, Src]) -> str:
         items.append(f'<li class="cav"><h3>{esc(title)}</h3><p class="cav-claim">{esc(text)}</p>'
                      f'<details class="fold" open><summary>Supporting sentences, verbatim</summary>{quotes}{extra}</details>'
                      + (f'<p class="small">See also: {links}</p>' if links else "") + "</li>")
-    return ('<div class="caveat cav-box"><p class="cav-lead"><strong>Read every result on this site with these caveats in mind.</strong> '
+    return ('<div class="cav-box"><p class="cav-lead"><strong>Read every result on this site with these caveats in mind.</strong> '
             'They are stated as facts of the process, not as judgements of any candidate.</p>'
             f'<ol class="cav-list">{"".join(items)}</ol></div>')
 

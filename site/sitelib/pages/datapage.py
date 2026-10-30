@@ -349,7 +349,7 @@ def changelog_page(site: Site, commits: list[dict], shallow: bool) -> None:
     n_with = sum(1 for c in commits if c["entries"])
     parts = ['<header class="data-head"><h1>Changelog</h1>'
              '<p class="lede">Every judgment added to the repository, newest first: one entry per judge ranking '
-             '(<code>Judge/&lt;X&gt;-Judge/RANKING.md</code>) or phase-1 review (<code>Review/&lt;T&gt;-Review/&lt;folder&gt;/REVIEW.md</code>), '
+             '(each judge\'s <code>RANKING.md</code>) or phase-1 review (each review\'s <code>REVIEW.md</code>), '
              'grouped under the commit that added it. Generated from the git history of <code>Judge/</code> and <code>Review/</code>.</p>'
              f'<p class="data-links"><a class="btn" href="@/feed.xml">Atom feed</a> <a class="btn" href="@/data/">Data &amp; schema</a></p></header>']
     if shallow:
@@ -363,8 +363,9 @@ def changelog_page(site: Site, commits: list[dict], shallow: bool) -> None:
     parts.append('<ol class="changelog">')
     for cm in commits:
         sha = cm["sha"]
-        head = (f'<div class="cl-meta">{_date(cm["date_iso"])} · <a href="{GITHUB}/commit/{sha}" rel="noopener"><code>{sha[:7]}</code></a>'
-                f' · <span class="nw">{esc(cm["author"])}</span></div><h2 class="cl-subject" id="c-{sha[:12]}">{esc(cm["subject"])}</h2>')
+        # meta items wrap as whole units; the '·' separator is drawn before each item after the first (data.css)
+        head = (f'<div class="cl-meta"><span class="cl-mi">{_date(cm["date_iso"])}</span> <span class="cl-mi"><a href="{GITHUB}/commit/{sha}" rel="noopener"><code>{sha[:7]}</code></a></span>'
+                f' <span class="cl-mi">{esc(cm["author"])}</span></div><h2 class="cl-subject" id="c-{sha[:12]}">{esc(cm["subject"])}</h2>')
         groups_e: dict[str, list[str]] = {}
         for e in cm["entries"]:
             label = _keep(e["title"].removeprefix("Added: "))
@@ -473,10 +474,15 @@ Two builds of the same commit produce byte-identical files.</p>
 </section>
 <section class="data-sec" aria-labelledby="provenance"><h2 id="provenance">Provenance and licence</h2>
 <ul class="data-notes">
-<li>Source: the committed files of <a href="{tree}" rel="noopener">mpuchstein/MandelbrotXR at <code>{esc(g['sha'][:7])}</code></a> —
-{_pcode("site/candidates.toml")}, {_pcode("Review/*-Review/*/REVIEW.md")}, {_pcode("Judge/*-Judge/RANKING.md")},
-{_pcode("Judge/judge-mapping.json")}, {_pcode("ReviewOrchestrator/blind-mapping.json")} and
-{_pcode("ReviewOrchestrator/blind/source-html.sha256")}. Nothing is entered by hand except {_pcode("site/candidates.toml")}.</li>
+<li>Source: the committed files of <a href="{tree}" rel="noopener">mpuchstein/MandelbrotXR at <code>{esc(g['sha'][:7])}</code></a>:
+<ul class="data-paths">
+<li>{_pcode("site/candidates.toml")}: the candidate list (the only file entered by hand)</li>
+<li>{_pcode("Review/*-Review/*/REVIEW.md")}: every phase-1 review</li>
+<li>{_pcode("Judge/*-Judge/RANKING.md")}: every judge ranking</li>
+<li>{_pcode("Judge/judge-mapping.json")}: the judges' letter mapping</li>
+<li>{_pcode("ReviewOrchestrator/blind-mapping.json")}: the reviewers' blind ids</li>
+<li>{_pcode("ReviewOrchestrator/blind/source-html.sha256")}: checksums of the blinded HTML copies</li>
+</ul></li>
 <li>Verdicts are verbatim: justifications, reasons and special-element bullets are the judges' and reviewers' Markdown, unchanged. Scores and ranks are parsed, not edited.</li>
 <li>Fields marked {tag} are computed by the build; see <a href="#derived-fields">Derived fields</a> and <a href="@/methodology/#derived">Methodology</a>.</li>
 <li>The repository has no licence file at this commit; reuse terms are the repository owner's.</li>

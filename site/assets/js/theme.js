@@ -23,6 +23,6 @@
     btn.addEventListener("click", function () { var v = isDark() ? "light" : "dark"; apply(v); store(v); sync(); });
     if (media && media.addEventListener) media.addEventListener("change", sync);
     var cur = document.querySelector('.site-nav [aria-current="page"]');
-    if (cur && cur.scrollIntoView && window.innerWidth < 640) cur.scrollIntoView({ inline: "center", block: "nearest" });
+    if (cur && cur.scrollIntoView && window.innerWidth < 640) cur.scrollIntoView({ inline: "nearest", block: "nearest" });
   });
 })();

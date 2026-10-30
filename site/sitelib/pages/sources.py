@@ -17,6 +17,7 @@ import re
 from ..fragments import render_md
 from ..data import repo_files
 from ..layout import Site, esc
+from .judges import _num_cols
 
 ORDER = 750
 
@@ -60,15 +61,20 @@ def numbered(text: str) -> str:
     return f'<pre class="src"><code>{body}</code></pre>'
 
 
-def crumbs_for(path: str, last: str | None = None) -> list[tuple[str, str]]:
-    out = [("Source files", "source/")]
+# breadcrumb root per nav section, so the breadcrumb and the highlighted nav tab name the same section
+SECTION_CRUMB = {"judges": ("Judges & reviews", "judges/"), "candidates": ("Candidates", "candidates/"),
+                 "transcripts": ("Transcripts", "transcripts/")}
+
+
+def crumbs_for(path: str, last: str | None = None, section: str = "transcripts") -> list[tuple[str, str]]:
+    out = ([SECTION_CRUMB[section]] if section in SECTION_CRUMB else []) + [("Source files", "source/")]
     parts = path.split("/") if path else []
     for i, p in enumerate(parts):
         if i == len(parts) - 1 and last is not None:
             out.append((p, ""))
         else:
             out.append((p, "source/" + "/".join(parts[: i + 1]) + "/"))
-    if last is None and len(out) > 1:
+    if last is None and path:
         out[-1] = (out[-1][0], "")
     return out
 
@@ -176,12 +182,14 @@ def build(site: Site) -> None:
                          render_md(site, f, text, id_prefix="md-"))
             doc = _TD_CODE.sub(lambda m: m.group(1) + _wbr(m.group(2)) + m.group(3), doc)
             doc = _INLINE_PATH.sub(_path_code, doc)
+            doc = _num_cols(doc)
             body = (head + f'<section class="src-doc" aria-label="Rendered Markdown">{doc}</section>'
                     + '<details class="src-view"><summary>Source with line numbers</summary>' + numbered(text) + '</details>')
         else:
             body = head + numbered(text)
-        site.page(f"source/{f}.html", f"{name} · {d or 'repository root'}", body, section=sec_of.get(f.split("/", 1)[0], "transcripts"),
-                  crumbs=crumbs_for(f, last=name), description=f"Rendered copy of {f} from the MandelbrotXR repository.",
+        sec = sec_of.get(f.split("/", 1)[0], "transcripts")
+        site.page(f"source/{f}.html", f"{name} · {d or 'repository root'}", body, section=sec,
+                  crumbs=crumbs_for(f, last=name, section=sec), description=f"Rendered copy of {f} from the MandelbrotXR repository.",
                   scripts=["transcripts.js"])
 
     # ---- directory listings
@@ -215,7 +223,8 @@ def build(site: Site) -> None:
         body = (f'<h1 class="src-path">{esc(posixpath.basename(d))}/</h1>'
                 f'<p class="muted src-meta"><code>{esc(d)}/</code> · <a href="@/source/{up + "/" if up else ""}">up to {esc(up or "repository root")}</a>'
                 f' · <a href="{esc(site.gh(d, tree=True))}" rel="noopener">on GitHub</a></p>' + listing(d))
-        site.page(f"source/{d}/index.html", f"{d}/", body, section=sec_of.get(d.split("/", 1)[0], "transcripts"), crumbs=crumbs_for(d),
+        sec = sec_of.get(d.split("/", 1)[0], "transcripts")
+        site.page(f"source/{d}/index.html", f"{d}/", body, section=sec, crumbs=crumbs_for(d, section=sec),
                   description=f"Files in {d}/ of the MandelbrotXR repository.")
 
     n_text = len(texts)
@@ -227,5 +236,5 @@ def build(site: Site) -> None:
             '(<code>__pycache__/</code>), the site generator code and output under <code>site/</code> (only its documents are listed) and dot-directories are not listed.</p>'
             '<h2>Repository root</h2>' + listing("") +
             '<h2>Full tree</h2>' + f'<div class="src-tree">{tree("")}</div>')
-    site.page("source/index.html", "Source files", body, section="transcripts", crumbs=[("Source files", "")],
+    site.page("source/index.html", "Source files", body, section="transcripts", crumbs=[SECTION_CRUMB["transcripts"], ("Source files", "")],
               description="Rendered copies of every source file in the MandelbrotXR repository.")

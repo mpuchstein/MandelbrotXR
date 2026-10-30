@@ -271,7 +271,7 @@ def _technique_section(site: Site, t: Technique, prim: list[Item], sec: list[Ite
 def _matrix(site: Site, techs: list[Technique], prim: dict[str, list[Item]]) -> str:
     m = site.model
     cands = m.ordered()
-    head = "".join(f'<th scope="col" class="num"><a href="{cand_url(c)}">{_head_label(c.label)}</a></th>' for c in cands)
+    head = "".join(f'<th scope="col" class="num tq-c"><a href="{cand_url(c)}">{_head_label(c.label)}</a></th>' for c in cands)
     hi = max((sum(1 for it in prim.get(t.id, []) if c.slug in it.s.slugs) for t in techs for c in cands), default=1)
     rows, col_tot = [], {c.slug: 0 for c in cands}
     for t in techs:
@@ -283,13 +283,13 @@ def _matrix(site: Site, techs: list[Technique], prim: dict[str, list[Item]]) -> 
             n = sum(1 for it in items if c.slug in it.s.slugs)
             col_tot[c.slug] += n
             if n:
-                cells.append(f'<td class="num tq-hit" style="{_count_heat(n, hi)}"><a href="#t-{t.id}" aria-label="{esc(t.name)}: {esc(c.label)}, '
+                cells.append(f'<td class="num tq-c tq-hit" style="{_count_heat(n, hi)}"><a href="#t-{t.id}" aria-label="{esc(t.name)}: {esc(c.label)}, '
                              f'{_plural(n, "mention")}">{n}</a></td>')
             else:
-                cells.append('<td class="num tq-none"><span aria-hidden="true">–</span><span class="sr-only">none</span></td>')
+                cells.append('<td class="num tq-c tq-none"><span aria-hidden="true">–</span><span class="sr-only">none</span></td>')
         rows.append(f'<tr><th scope="row"><a href="#t-{t.id}">{esc(t.name)}</a></th>{"".join(cells)}'
                     f'<td class="num tq-tot">{len(items)}</td></tr>')
-    foot = "".join(f'<td class="num tq-tot">{col_tot[c.slug]}</td>' for c in cands)
+    foot = "".join(f'<td class="num tq-c tq-tot">{col_tot[c.slug]}</td>' for c in cands)
     total = sum(len(v) for v in prim.values())
     note = (f'<span class="muted tq-scroll-note"> The table shows {_plural(len(rows), "technique")} × '
             f'{_plural(len(cands), "candidate")}; scroll inside it, sideways and down.</span>')
@@ -306,11 +306,12 @@ mentions, not ratings: a bullet may describe a strength or a problem. Columns in
 
 
 def _head_label(label: str) -> str:
-    """Column header: the model part may wrap, the trailing ' · <variant>' gets its own line (never split)."""
+    """Column header: the model part may wrap; the trailing ' · <variant>' goes on its own line as just
+    '<variant>' (no stray middot at the line start; the separator stays in the accessible name)."""
     name, sep, var = label.rpartition(" · ")
     if not sep:
         return esc(label)
-    return f'{esc(name)} <span class="tq-cv">· {esc(var)}</span>'
+    return f'{esc(name)}<span class="sr-only"> · </span> <span class="tq-cv">{esc(var)}</span>'
 
 
 def _count_heat(n: int, hi: int) -> str:
@@ -544,7 +545,7 @@ strengths and problems, exactly as the judges wrote them; this page does not rat
 {_rules_details()}
 <section aria-labelledby="matrix">
 <h2 id="matrix">Candidate × technique matrix</h2>
-<p class="small muted">Each cell shows how many bullets name the candidate under that primary technique (mentions);
+<p class="muted tq-matrix-p">Each cell shows how many bullets name the candidate under that primary technique (mentions);
 “–” means none. These are counts of mentions, not ratings: many bullets are criticisms. The bottom row sums each column.
 Select a row or a count to jump to the quotes.</p>
 {_matrix(site, techs, prim)}

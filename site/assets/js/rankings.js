@@ -91,7 +91,7 @@
     return (k / 10).toFixed(1);
   }
   // mirrors rankings.py GLYPH_W / GLYPH_PAD
-  const GLYPH_W = 96, GLYPH_PAD = 6;
+  const GLYPH_W = 136, GLYPH_PAD = 6;
   const gx = (r) => (GLYPH_PAD + (r - 1) * (GLYPH_W - 2 * GLYPH_PAD) / Math.max(1, nmax - 1)).toFixed(1);
 
   function applyJudges() {

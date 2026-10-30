@@ -57,9 +57,16 @@ td.jr-cand, .jr-nowrap { white-space: nowrap; }
 /* ---- tables: two widths only, the reading measure (narrow tables) and the full content width (data tables) */
 .jr-narrow, .jr-matrix-block, .jr-overall { max-width: var(--measure); }
 .jr-ranking td.jr-rank { font-weight: 700; font-size: var(--text-lg); width: 56px; }
-.jr-ranking td.jr-just { min-width: 256px; max-width: var(--measure); }
+/* the ranking table shrinks to its content: justifications (its main text) at body size and ~62ch per line */
+.jr-ranking-wrap { width: fit-content; max-width: 100%; }
+.jr-ranking td.jr-just { width: 62ch; min-width: 256px; font-size: var(--text-base); }
+.jr-ranking td.jr-cand { white-space: nowrap; }
 .jr-judges td, .jr-judges th { min-width: 112px; }
-.jr-judges td:nth-child(2), .jr-judges td:nth-child(3) { min-width: 208px; }
+.jr-judges td:nth-child(2), .jr-judges td:nth-child(3) { min-width: 176px; }
+.jr-judges td.jr-j-first, .jr-judges td.jr-j-last { min-width: 176px; }
+@media (min-width: 40.01rem) { .jr-judges td.jr-j-first .jr-cn, .jr-judges td.jr-j-last .jr-cn { white-space: nowrap; } }
+/* every pick cell has the same two-line shape: the candidate label, then "saw X" */
+.jr-saw { display: block; font-size: var(--text-xs); color: var(--muted); }
 .jr-matrix thead th.num { text-align: center; min-width: 88px; }
 /* cell colours come inline from fragments.score_heat() (theme-aware --heat-k tokens) */
 .jr-matrix td.jr-score { position: relative; text-align: center; vertical-align: middle; font-weight: 700; padding: 0; }
@@ -67,6 +74,11 @@ td.jr-cand, .jr-nowrap { white-space: nowrap; }
 .jr-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); color: var(--muted); margin: 0 0 var(--space-2); }
 .jr-swatches { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
 .jr-bid { display: none; }
+/* candidate label + prompt badge: one unit that breaks only between the words of the model name */
+.jr-cb { white-space: normal; }
+/* scores aligned on the decimal point: the fraction sits in a fixed-width slot (empty for whole numbers) */
+.jr-frac { display: inline-block; min-width: 1.1em; text-align: left; }
+.jr-matrix td.jr-score .jr-dec { padding-left: 1.1em; }
 .jr-matrix td.jr-score a { display: block; padding: var(--space-2) var(--space-3); color: inherit; text-decoration: none; }
 .jr-matrix td.jr-score a:hover, .jr-matrix td.jr-score a:focus-visible { text-decoration: underline; }
 .jr-matrix td.jr-score a:focus-visible { outline-offset: -3px; }
@@ -74,6 +86,7 @@ td.jr-cand, .jr-nowrap { white-space: nowrap; }
 .jr-matrix td code, .jr-bid code { white-space: nowrap; }
 code.jr-line { white-space: pre-wrap; overflow-wrap: anywhere; }
 .jr-list td.jr-l-src { min-width: 224px; }
+.jr-list td.jr-l-src .evidence { white-space: nowrap; }
 .jr-l-cand { white-space: nowrap; }
 .jr-l-lbl { display: none; }
 /* one accent link per row: the row title; the other links in the row use the text colour (accent on hover) */
@@ -102,6 +115,9 @@ pre.jr-prompt { white-space: pre-wrap; overflow-wrap: anywhere; max-width: var(-
 /* tabular figures only in the numeric columns (td.num): applied to text, they widen hyphens */
 .jr-review .md td.num, .jr-review .md th.num { text-align: right; white-space: nowrap; }
 .jr-review .md td:last-child { overflow-wrap: anywhere; }
+/* tabular figures widen hyphens ("Done-when"); text cells keep proportional figures */
+.jr-review .md table { font-variant-numeric: normal; }
+.jr-review .md td.num { font-variant-numeric: tabular-nums; }
 @media (max-width: 30rem) { .jr-review .md th, .jr-review .md td { padding: var(--space-2); } }
 .jr-review .md th { white-space: normal; }
 .jr-ev li { margin-bottom: var(--space-1); }
@@ -124,12 +140,13 @@ pre.jr-prompt { white-space: pre-wrap; overflow-wrap: anywhere; max-width: var(-
   .reveal-bar .reveal-status { font-size: var(--text-xs); flex: 1 1 12rem; }
   .reveal-btn { min-height: 44px; padding: var(--space-1) var(--space-3); }
   .jr-ranking thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .jr-ranking tbody tr { display: grid; grid-template-columns: 40px 1fr auto; align-items: baseline; border-bottom: 1px solid var(--border); }
+  .jr-ranking-wrap { width: auto; }
+  .jr-ranking tbody tr { display: grid; grid-template-columns: 40px 1fr; align-items: baseline; border-bottom: 1px solid var(--border); }
   .jr-ranking tbody tr:last-child { border-bottom: 0; }
   .jr-ranking tbody td { border-bottom: 0; }
   .jr-ranking td.jr-rank { width: auto; padding-right: 0; }
   .jr-ranking td.jr-cand { white-space: normal; font-weight: 600; }
-  .jr-ranking td.jr-just { grid-column: 1 / -1; min-width: 0; padding-top: 0; }
+  .jr-ranking td.jr-just { grid-column: 1 / -1; width: auto; min-width: 0; padding-top: 0; }
 }
 
 /* the per-type review lists line up with each other on wide screens */
@@ -144,7 +161,7 @@ pre.jr-prompt { white-space: pre-wrap; overflow-wrap: anywhere; max-width: var(-
    the judges and review tables become one card per row, captions sit below the tables. */
 @media (max-width: 40rem) {
   .jr-matrix .jr-bid-col { display: none; }
-  .jr-bid { display: block; margin-top: var(--space-1); font-size: var(--text-xs); }
+  .jr-bid { display: inline-block; font-size: var(--text-xs); }
   .jr-matrix th[scope="row"] { white-space: normal; width: 52%; }
   .jr-matrix thead th.num { min-width: 0; padding-inline: var(--space-2); }
   .jr-matrix td.jr-score a { padding: var(--space-2) var(--space-2); }
@@ -170,4 +187,22 @@ pre.jr-prompt { white-space: pre-wrap; overflow-wrap: anywhere; max-width: var(-
   .jr-list td.jr-l-score { text-align: right; white-space: nowrap; margin-top: var(--space-1); font-weight: 600; }
   .jr-l-lbl { display: inline; color: var(--muted); font-weight: 400; }
   .jr-list td.jr-l-src { grid-column: 1 / -1; min-width: 0; margin-top: var(--space-1); font-size: var(--text-xs); }
+}
+
+/* ---- narrow screens: rubric tables in a review ("criterion | score | reason") stack as one block per row:
+   criterion and score on one line, the reason full width below */
+@media (max-width: 40rem) {
+  .jr-review table.jr-crit thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .jr-review table.jr-crit, .jr-review table.jr-crit tbody { display: block; }
+  .jr-review table.jr-crit tr { display: grid; grid-template-columns: 1fr auto; gap: 0 var(--space-3); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); }
+  .jr-review table.jr-crit tbody tr:last-child { border-bottom: 0; }
+  .jr-review table.jr-crit td { padding: 0; border: 0; min-width: 0; }
+  .jr-review table.jr-crit td:first-child { font-weight: 600; }
+  .jr-review table.jr-crit td.num { font-weight: 700; }
+  .jr-review table.jr-crit td:last-child { grid-column: 1 / -1; margin-top: var(--space-1); }
+  /* key facts: small muted label tight above its value, clear gaps between pairs */
+  .jr-head dl.facts { gap: 0; }
+  .jr-head dl.facts dt { font-size: var(--text-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; margin-top: var(--space-3); }
+  .jr-head dl.facts dt:first-child { margin-top: 0; }
+  .jr-head dl.facts dd { margin: 2px 0 0; }
 }

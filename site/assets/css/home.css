@@ -41,17 +41,20 @@
 .home-headline { margin-bottom: var(--space-5); }
 .home-headline h2 { margin-top: 0; }
 /* one column on small screens (quote, check, caveats); from 64rem the quote and the caveats stack on
-   the left beside the derived check, so both columns end together and share one right edge */
+   the left beside the derived check (which keeps its own height); both callouts share one padding,
+   border and bullet indent */
 .home-headline-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
 .home-headline-grid > .caveat { max-width: none; margin: 0; }
 @media (min-width: 64rem) {
   .home-headline-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-rows: auto 1fr;
     grid-template-areas: "quote check" "caveat check"; }
   .home-headline-grid > .home-quote { grid-area: quote; }
-  .home-headline-grid > .home-check { grid-area: check; align-self: stretch; }
+  .home-headline-grid > .home-check { grid-area: check; align-self: start; }  /* hugs its content */
   .home-headline-grid > .caveat { grid-area: caveat; align-self: stretch; }
 }
-.home-quote { margin: 0; padding: var(--space-3) var(--space-4); border-left: 3px solid var(--accent); }
+.home-quote { margin: 0; padding: var(--space-3) var(--space-4); border-left: 4px solid var(--accent); }
+.home-headline-grid > .caveat { padding: var(--space-3) var(--space-4); }
+.home-headline-grid > .caveat ul { padding-left: var(--space-4); }
 .home-quote blockquote { margin: 0; padding: 0; border: 0; background: none; }
 .home-quote .md { max-width: none; }
 .home-quote .md > p:first-child { font-weight: 600; }
@@ -72,6 +75,9 @@
 .home-dev .num { white-space: nowrap; }
 .home-dev tbody th { font-weight: 500; }
 .home-delta { font-weight: 700; }
+/* data links (derived check, compact ranking) read as text with a neutral underline; accent on hover/focus only */
+.home-check a, .home-rank-table a { color: var(--fg); text-decoration-color: var(--border-strong); }
+.home-check a:hover, .home-check a:focus-visible, .home-rank-table a:hover, .home-rank-table a:focus-visible { color: var(--accent); text-decoration-color: currentColor; }
 
 
 /* ---- candidate cards: the candidates/ card component (.cand-card, styled in candidates.css) ---- */
