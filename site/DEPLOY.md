@@ -4,7 +4,7 @@ Recommendations only, for the owner to apply. The build does not deploy anything
 
 ## Build
 
-From a clean clone, at the repository root (stdlib only, Python ≥ 3.11):
+From a clean clone, at the repository root (stdlib only, Python ≥ 3.12):
 
 ```bash
 python3 -I site/build.py --out site/dist

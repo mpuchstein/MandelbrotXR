@@ -6,7 +6,7 @@ standalone WebXR Mandelbrot page; the pages were reviewed blind (phase 1) and ra
 
 ## Build
 
-Standard library only (Python ≥ 3.11 for `tomllib`; developed on 3.13). From the repository root:
+Standard library only (Python ≥ 3.12; developed on 3.13). From the repository root:
 
 ```bash
 python3 -I site/build.py

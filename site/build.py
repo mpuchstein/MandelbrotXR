@@ -16,6 +16,8 @@ import sys
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)  # python -I does not put the script's directory on sys.path
+if sys.version_info < (3, 12):  # the page modules use 3.12 f-string syntax (PEP 701)
+    sys.exit(f"build: needs Python 3.12 or newer; this is {sys.version.split()[0]}")
 
 from sitelib import data, fragments, layout  # noqa: E402
 from sitelib.data import DataError  # noqa: E402
